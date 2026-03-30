@@ -1,0 +1,13 @@
+package com.resiflow.dto;
+
+public enum ApiErrorCode {
+    VALIDATION_ERROR,
+    INVALID_CREDENTIALS,
+    ACCOUNT_PENDING,
+    ACCOUNT_REJECTED,
+    INVALID_RESIDENCE_CODE,
+    EMAIL_ALREADY_USED,
+    UNAUTHORIZED,
+    FORBIDDEN,
+    NOT_FOUND
+}
