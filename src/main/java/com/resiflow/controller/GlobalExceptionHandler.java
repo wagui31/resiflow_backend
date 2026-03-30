@@ -3,6 +3,7 @@ package com.resiflow.controller;
 import com.resiflow.dto.ApiErrorCode;
 import com.resiflow.dto.ApiErrorResponse;
 import com.resiflow.service.AccountStatusException;
+import com.resiflow.service.CaptchaValidationException;
 import com.resiflow.service.EmailAlreadyUsedException;
 import com.resiflow.service.InvalidCredentialsException;
 import com.resiflow.service.InvalidResidenceCodeException;
@@ -24,6 +25,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalStateException(final IllegalStateException exception) {
         return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VALIDATION_ERROR, exception.getMessage());
+    }
+
+    @ExceptionHandler(CaptchaValidationException.class)
+    public ResponseEntity<ApiErrorResponse> handleCaptchaValidationException(final CaptchaValidationException exception) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_CAPTCHA, exception.getMessage());
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)

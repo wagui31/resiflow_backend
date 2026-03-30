@@ -2,6 +2,7 @@ package com.resiflow.dto;
 
 public enum ApiErrorCode {
     VALIDATION_ERROR,
+    INVALID_CAPTCHA,
     INVALID_CREDENTIALS,
     ACCOUNT_PENDING,
     ACCOUNT_REJECTED,

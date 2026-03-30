@@ -28,19 +28,22 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final CaptchaVerificationService captchaVerificationService;
 
     public AuthService(
             final UserRepository userRepository,
             final ResidenceService residenceService,
             final JwtService jwtService,
             final PasswordEncoder passwordEncoder,
-            final EmailService emailService
+            final EmailService emailService,
+            final CaptchaVerificationService captchaVerificationService
     ) {
         this.userRepository = userRepository;
         this.residenceService = residenceService;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.captchaVerificationService = captchaVerificationService;
     }
 
     public LoginResponse login(final LoginRequest request) {
@@ -69,6 +72,7 @@ public class AuthService {
     @Transactional
     public User register(final RegisterRequest request) {
         validateRegisterRequest(request);
+        captchaVerificationService.validateRegistrationCaptcha(request.getCaptchaToken());
 
         String email = request.getEmail().trim();
         ensureEmailAvailable(email);

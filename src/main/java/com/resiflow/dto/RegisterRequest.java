@@ -7,6 +7,7 @@ public class RegisterRequest {
     private String residenceCode;
     private String numeroImmeuble;
     private String codeLogement;
+    private String captchaToken;
 
     public String getEmail() {
         return email;
@@ -46,5 +47,13 @@ public class RegisterRequest {
 
     public void setCodeLogement(final String codeLogement) {
         this.codeLogement = codeLogement;
+    }
+
+    public String getCaptchaToken() {
+        return captchaToken;
+    }
+
+    public void setCaptchaToken(final String captchaToken) {
+        this.captchaToken = captchaToken;
     }
 }

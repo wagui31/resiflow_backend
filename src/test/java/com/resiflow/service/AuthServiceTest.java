@@ -4,6 +4,7 @@ import com.resiflow.dto.LoginRequest;
 import com.resiflow.dto.LoginResponse;
 import com.resiflow.dto.RegisterRequest;
 import com.resiflow.dto.ApiErrorCode;
+import com.resiflow.config.CaptchaProperties;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,7 +48,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 jwtService,
                 passwordEncoder,
-                new EmailService()
+                new EmailService(),
+                captchaServiceDisabled()
         );
 
         LoginRequest request = new LoginRequest();
@@ -71,7 +74,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService()
+                new EmailService(),
+                captchaServiceDisabled()
         );
 
         LoginRequest request = new LoginRequest();
@@ -90,7 +94,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService()
+                new EmailService(),
+                captchaServiceDisabled()
         );
 
         assertThatThrownBy(() -> authService.login(null))
@@ -105,7 +110,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService()
+                new EmailService(),
+                captchaServiceDisabled()
         );
 
         LoginRequest request = new LoginRequest();
@@ -124,7 +130,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService()
+                new EmailService(),
+                captchaServiceDisabled()
         );
 
         LoginRequest request = new LoginRequest();
@@ -149,7 +156,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService()
+                new EmailService(),
+                captchaServiceDisabled()
         );
 
         LoginRequest request = new LoginRequest();
@@ -174,7 +182,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService()
+                new EmailService(),
+                captchaServiceDisabled()
         );
 
         LoginRequest request = new LoginRequest();
@@ -197,7 +206,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                emailService
+                emailService,
+                captchaServiceDisabled()
         );
 
         RegisterRequest request = new RegisterRequest();
@@ -206,6 +216,7 @@ class AuthServiceTest {
         request.setResidenceCode(" RES-ABC123 ");
         request.setNumeroImmeuble(" B ");
         request.setCodeLogement(" 12A ");
+        request.setCaptchaToken("captcha-token");
 
         User result = authService.register(request);
 
@@ -223,6 +234,49 @@ class AuthServiceTest {
         assertThat(emailService.adminRecipients).containsExactly("admin@example.com");
         assertThat(emailService.adminSubject).isEqualTo("Nouvelle demande d'inscription");
         assertThat(emailService.adminBody).contains("resident@example.com");
+    }
+
+    @Test
+    void registerRejectsMissingCaptchaWhenEnabled() {
+        AuthService authService = new AuthService(
+                repositoryProxy(Optional.empty(), new AtomicReference<>(), List.of()),
+                residenceServiceStub(),
+                new JwtService(new JwtProperties(SECRET, 3600000)),
+                passwordEncoder,
+                new EmailService(),
+                captchaServiceEnabledWithValidResponse()
+        );
+
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("resident@example.com");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(CaptchaValidationException.class)
+                .hasMessage("Captcha token must not be blank");
+    }
+
+    @Test
+    void registerRejectsInvalidCaptchaWhenEnabled() {
+        AuthService authService = new AuthService(
+                repositoryProxy(Optional.empty(), new AtomicReference<>(), List.of()),
+                residenceServiceStub(),
+                new JwtService(new JwtProperties(SECRET, 3600000)),
+                passwordEncoder,
+                new EmailService(),
+                captchaServiceEnabledWithInvalidResponse()
+        );
+
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("resident@example.com");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+        request.setCaptchaToken("bad-captcha");
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(CaptchaValidationException.class)
+                .hasMessage("Captcha validation failed");
     }
 
     private UserRepository repositoryProxy(
@@ -293,6 +347,83 @@ class AuthServiceTest {
                 return residence;
             }
         };
+    }
+
+    private CaptchaVerificationService captchaServiceDisabled() {
+        return new CaptchaVerificationService(
+                new CaptchaProperties(false, "", ""),
+                RestClient.builder().build()
+        );
+    }
+
+    private CaptchaVerificationService captchaServiceEnabledWithValidResponse() {
+        return new CaptchaVerificationService(
+                new CaptchaProperties(true, "secret", "https://captcha.local/verify"),
+                RestClient.builder()
+                        .requestInterceptor((request, body, execution) -> new org.springframework.http.client.ClientHttpResponse() {
+                            @Override
+                            public org.springframework.http.HttpStatusCode getStatusCode() {
+                                return org.springframework.http.HttpStatus.OK;
+                            }
+
+                            @Override
+                            public String getStatusText() {
+                                return "OK";
+                            }
+
+                            @Override
+                            public void close() {
+                            }
+
+                            @Override
+                            public java.io.InputStream getBody() {
+                                return new java.io.ByteArrayInputStream("{\"success\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            }
+
+                            @Override
+                            public org.springframework.http.HttpHeaders getHeaders() {
+                                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                                headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+                                return headers;
+                            }
+                        })
+                        .build()
+        );
+    }
+
+    private CaptchaVerificationService captchaServiceEnabledWithInvalidResponse() {
+        return new CaptchaVerificationService(
+                new CaptchaProperties(true, "secret", "https://captcha.local/verify"),
+                RestClient.builder()
+                        .requestInterceptor((request, body, execution) -> new org.springframework.http.client.ClientHttpResponse() {
+                            @Override
+                            public org.springframework.http.HttpStatusCode getStatusCode() {
+                                return org.springframework.http.HttpStatus.OK;
+                            }
+
+                            @Override
+                            public String getStatusText() {
+                                return "OK";
+                            }
+
+                            @Override
+                            public void close() {
+                            }
+
+                            @Override
+                            public java.io.InputStream getBody() {
+                                return new java.io.ByteArrayInputStream("{\"success\":false}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            }
+
+                            @Override
+                            public org.springframework.http.HttpHeaders getHeaders() {
+                                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                                headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+                                return headers;
+                            }
+                        })
+                        .build()
+        );
     }
 
     private static final class RecordingEmailService extends EmailService {

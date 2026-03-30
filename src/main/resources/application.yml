@@ -38,6 +38,10 @@ app:
   mail:
     enabled: ${APP_MAIL_ENABLED:false}
     from: ${APP_MAIL_FROM:noreply@resiflow.local}
+  captcha:
+    enabled: ${APP_CAPTCHA_ENABLED:false}
+    secret-key: ${APP_CAPTCHA_SECRET_KEY:}
+    verify-url: ${APP_CAPTCHA_VERIFY_URL:https://challenges.cloudflare.com/turnstile/v0/siteverify}
 
 server:
   address: 0.0.0.0

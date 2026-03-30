@@ -9,11 +9,13 @@ import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
 import com.resiflow.service.AuthService;
+import com.resiflow.service.CaptchaVerificationService;
 import com.resiflow.service.EmailService;
 import com.resiflow.service.InvalidCredentialsException;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,7 +36,14 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        AuthService authService = new AuthService(null, null, null, new BCryptPasswordEncoder(), new EmailService()) {
+        AuthService authService = new AuthService(
+                null,
+                null,
+                null,
+                new BCryptPasswordEncoder(),
+                new EmailService(),
+                new CaptchaVerificationService(new com.resiflow.config.CaptchaProperties(false, "", ""), RestClient.builder().build())
+        ) {
             @Override
             public LoginResponse login(final LoginRequest request) {
                 if (request == null || request.getEmail() == null || request.getEmail().trim().isEmpty()) {
@@ -135,6 +144,7 @@ class AuthControllerTest {
         request.setResidenceCode("RES-ABC123");
         request.setNumeroImmeuble("B");
         request.setCodeLogement("12A");
+        request.setCaptchaToken("captcha-token");
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
