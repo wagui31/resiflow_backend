@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.resiflow.config.CaptchaProperties;
 import java.util.List;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -18,6 +19,7 @@ public class CaptchaVerificationService {
     private final CaptchaProperties captchaProperties;
     private final RestClient restClient;
 
+    @Autowired
     public CaptchaVerificationService(
             final CaptchaProperties captchaProperties,
             final RestClient.Builder restClientBuilder

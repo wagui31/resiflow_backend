@@ -258,6 +258,30 @@ class AuthServiceTest {
     }
 
     @Test
+    void registerAllowsMissingCaptchaForMobileClient() {
+        AtomicReference<User> savedUserRef = new AtomicReference<>();
+        AuthService authService = new AuthService(
+                repositoryProxy(Optional.empty(), savedUserRef, List.of()),
+                residenceServiceStub(),
+                new JwtService(new JwtProperties(SECRET, 3600000)),
+                passwordEncoder,
+                new EmailService(),
+                captchaServiceEnabledWithValidResponse()
+        );
+
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("resident@example.com");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+
+        User result = authService.register(request, "mobile-android");
+
+        assertThat(result.getId()).isEqualTo(99L);
+        assertThat(savedUserRef.get()).isNotNull();
+        assertThat(savedUserRef.get().getEmail()).isEqualTo("resident@example.com");
+    }
+
+    @Test
     void registerRejectsInvalidCaptchaWhenEnabled() {
         AuthService authService = new AuthService(
                 repositoryProxy(Optional.empty(), new AtomicReference<>(), List.of()),
@@ -351,14 +375,14 @@ class AuthServiceTest {
 
     private CaptchaVerificationService captchaServiceDisabled() {
         return new CaptchaVerificationService(
-                new CaptchaProperties(false, "", ""),
+                new CaptchaProperties(false, "", "", ""),
                 RestClient.builder().build()
         );
     }
 
     private CaptchaVerificationService captchaServiceEnabledWithValidResponse() {
         return new CaptchaVerificationService(
-                new CaptchaProperties(true, "secret", "https://captcha.local/verify"),
+                new CaptchaProperties(true, "site-key", "secret", "https://captcha.local/verify"),
                 RestClient.builder()
                         .requestInterceptor((request, body, execution) -> new org.springframework.http.client.ClientHttpResponse() {
                             @Override
@@ -393,7 +417,7 @@ class AuthServiceTest {
 
     private CaptchaVerificationService captchaServiceEnabledWithInvalidResponse() {
         return new CaptchaVerificationService(
-                new CaptchaProperties(true, "secret", "https://captcha.local/verify"),
+                new CaptchaProperties(true, "site-key", "secret", "https://captcha.local/verify"),
                 RestClient.builder()
                         .requestInterceptor((request, body, execution) -> new org.springframework.http.client.ClientHttpResponse() {
                             @Override

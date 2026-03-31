@@ -5,6 +5,7 @@ import com.resiflow.dto.LoginResponse;
 import com.resiflow.dto.RegisterRequest;
 import com.resiflow.dto.UserResponse;
 import com.resiflow.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,7 +28,11 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserResponse> register(@RequestBody final RegisterRequest request) {
-        return ResponseEntity.ok(UserResponse.fromUser(authService.register(request)));
+    public ResponseEntity<UserResponse> register(
+            @RequestBody final RegisterRequest request,
+            final HttpServletRequest httpRequest
+    ) {
+        String clientPlatform = httpRequest.getHeader("X-Client-Platform");
+        return ResponseEntity.ok(UserResponse.fromUser(authService.register(request, clientPlatform)));
     }
 }

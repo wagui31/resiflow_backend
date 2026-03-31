@@ -71,8 +71,15 @@ public class AuthService {
 
     @Transactional
     public User register(final RegisterRequest request) {
+        return register(request, null);
+    }
+
+    @Transactional
+    public User register(final RegisterRequest request, final String clientPlatform) {
         validateRegisterRequest(request);
-        captchaVerificationService.validateRegistrationCaptcha(request.getCaptchaToken());
+        if (!isMobileClient(clientPlatform)) {
+            captchaVerificationService.validateRegistrationCaptcha(request.getCaptchaToken());
+        }
 
         String email = request.getEmail().trim();
         ensureEmailAvailable(email);
@@ -127,6 +134,14 @@ public class AuthService {
         }
         String trimmedValue = value.trim();
         return trimmedValue.isEmpty() ? null : trimmedValue;
+    }
+
+    private boolean isMobileClient(final String clientPlatform) {
+        if (clientPlatform == null) {
+            return false;
+        }
+        String normalizedPlatform = clientPlatform.trim().toLowerCase();
+        return normalizedPlatform.equals("mobile-android") || normalizedPlatform.equals("mobile-ios");
     }
 
     private void validateRegisterRequest(final RegisterRequest request) {

@@ -42,7 +42,7 @@ class AuthControllerTest {
                 null,
                 new BCryptPasswordEncoder(),
                 new EmailService(),
-                new CaptchaVerificationService(new com.resiflow.config.CaptchaProperties(false, "", ""), RestClient.builder().build())
+                new CaptchaVerificationService(new com.resiflow.config.CaptchaProperties(false, "", "", ""), RestClient.builder().build())
         ) {
             @Override
             public LoginResponse login(final LoginRequest request) {
@@ -57,7 +57,7 @@ class AuthControllerTest {
             }
 
             @Override
-            public User register(final RegisterRequest request) {
+            public User register(final RegisterRequest request, final String clientPlatform) {
                 if (request == null || request.getResidenceCode() == null || request.getResidenceCode().trim().isEmpty()) {
                     throw new IllegalArgumentException("Residence code must not be blank");
                 }
