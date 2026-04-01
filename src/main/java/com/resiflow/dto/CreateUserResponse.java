@@ -11,7 +11,10 @@ public class CreateUserResponse extends UserResponse {
     public CreateUserResponse(
             final Long id,
             final String email,
+            final String firstName,
+            final String lastName,
             final Long residenceId,
+            final String residenceName,
             final String residenceCode,
             final String numeroImmeuble,
             final String codeLogement,
@@ -24,7 +27,10 @@ public class CreateUserResponse extends UserResponse {
         super(
                 id,
                 email,
+                firstName,
+                lastName,
                 residenceId,
+                residenceName,
                 residenceCode,
                 numeroImmeuble,
                 codeLogement,
@@ -40,7 +46,10 @@ public class CreateUserResponse extends UserResponse {
         return new CreateUserResponse(
                 user.getId(),
                 user.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
                 user.getResidenceId(),
+                user.getResidence() == null ? null : user.getResidence().getName(),
                 user.getResidence() == null ? null : user.getResidence().getCode(),
                 user.getNumeroImmeuble(),
                 user.getCodeLogement(),

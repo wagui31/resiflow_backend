@@ -61,6 +61,8 @@ public class UserService {
         User user = new User();
         LocalDateTime now = LocalDateTime.now();
         user.setEmail(request.getEmail().trim());
+        user.setFirstName(normalizeOptionalValue(request.getFirstName()));
+        user.setLastName(normalizeOptionalValue(request.getLastName()));
         user.setPassword(passwordEncoder.encode(request.getPassword().trim()));
         user.setResidence(residence);
         user.setRole(UserRole.ADMIN);
@@ -199,6 +201,14 @@ public class UserService {
 
     private boolean isBlank(final String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String normalizeOptionalValue(final String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmedValue = value.trim();
+        return trimmedValue.isEmpty() ? null : trimmedValue;
     }
 
     private User getManageableUser(final Long userId, final AuthenticatedUser authenticatedUser) {

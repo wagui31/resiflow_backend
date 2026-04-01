@@ -10,7 +10,10 @@ public class UserResponse {
 
     private final Long id;
     private final String email;
+    private final String firstName;
+    private final String lastName;
     private final Long residenceId;
+    private final String residenceName;
     private final String residenceCode;
     private final String numeroImmeuble;
     private final String codeLogement;
@@ -23,7 +26,10 @@ public class UserResponse {
     public UserResponse(
             final Long id,
             final String email,
+            final String firstName,
+            final String lastName,
             final Long residenceId,
+            final String residenceName,
             final String residenceCode,
             final String numeroImmeuble,
             final String codeLogement,
@@ -35,7 +41,10 @@ public class UserResponse {
     ) {
         this.id = id;
         this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.residenceId = residenceId;
+        this.residenceName = residenceName;
         this.residenceCode = residenceCode;
         this.numeroImmeuble = numeroImmeuble;
         this.codeLogement = codeLogement;
@@ -49,7 +58,10 @@ public class UserResponse {
     public UserResponse(
             final Long id,
             final String email,
+            final String firstName,
+            final String lastName,
             final Long residenceId,
+            final String residenceName,
             final String residenceCode,
             final String numeroImmeuble,
             final String codeLogement,
@@ -58,14 +70,32 @@ public class UserResponse {
             final LocalDateTime createdAt,
             final LocalDateTime updatedAt
     ) {
-        this(id, email, residenceId, residenceCode, numeroImmeuble, codeLogement, role, status, null, createdAt, updatedAt);
+        this(
+                id,
+                email,
+                firstName,
+                lastName,
+                residenceId,
+                residenceName,
+                residenceCode,
+                numeroImmeuble,
+                codeLogement,
+                role,
+                status,
+                null,
+                createdAt,
+                updatedAt
+        );
     }
 
     public static UserResponse fromUser(final User user) {
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
                 user.getResidenceId(),
+                user.getResidence() == null ? null : user.getResidence().getName(),
                 user.getResidence() == null ? null : user.getResidence().getCode(),
                 user.getNumeroImmeuble(),
                 user.getCodeLogement(),
@@ -85,8 +115,20 @@ public class UserResponse {
         return email;
     }
 
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
     public Long getResidenceId() {
         return residenceId;
+    }
+
+    public String getResidenceName() {
+        return residenceName;
     }
 
     public String getResidenceCode() {

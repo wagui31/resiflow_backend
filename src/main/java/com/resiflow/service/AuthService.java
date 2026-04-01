@@ -87,6 +87,8 @@ public class AuthService {
         User user = new User();
         LocalDateTime now = LocalDateTime.now();
         user.setEmail(email);
+        user.setFirstName(normalizeOptionalValue(request.getFirstName()));
+        user.setLastName(normalizeOptionalValue(request.getLastName()));
         user.setPassword(passwordEncoder.encode(request.getPassword().trim()));
         user.setResidence(residenceService.getRequiredResidenceByCode(request.getResidenceCode().trim().toUpperCase()));
         user.setRole(UserRole.USER);
