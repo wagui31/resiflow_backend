@@ -9,6 +9,7 @@ public class CreateResidenceRequest {
     private String code;
     private Boolean enabled;
     private BigDecimal montantMensuel;
+    private String currency;
 
     public String getName() {
         return name;
@@ -48,5 +49,13 @@ public class CreateResidenceRequest {
 
     public void setMontantMensuel(final BigDecimal montantMensuel) {
         this.montantMensuel = montantMensuel;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(final String currency) {
+        this.currency = currency;
     }
 }

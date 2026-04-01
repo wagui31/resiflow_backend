@@ -32,6 +32,9 @@ public class Residence {
     @Column(name = "montant_mensuel", nullable = false, precision = 12, scale = 2)
     private BigDecimal montantMensuel;
 
+    @Column(length = 3)
+    private String currency;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -79,6 +82,14 @@ public class Residence {
 
     public void setMontantMensuel(final BigDecimal montantMensuel) {
         this.montantMensuel = montantMensuel;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(final String currency) {
+        this.currency = currency;
     }
 
     public LocalDateTime getCreatedAt() {

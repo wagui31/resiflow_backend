@@ -51,7 +51,7 @@ class AuthControllerTest {
                 }
                 if ("resident@example.com".equals(request.getEmail().trim())
                         && "secret".equals(request.getPassword().trim())) {
-                    return new LoginResponse(1L, "resident@example.com", 7L, UserRole.USER, UserStatus.ACTIVE, TOKEN);
+                    return new LoginResponse(1L, "resident@example.com", 7L, "EUR", UserRole.USER, UserStatus.ACTIVE, TOKEN);
                 }
                 throw new InvalidCredentialsException("Invalid credentials");
             }
@@ -65,6 +65,7 @@ class AuthControllerTest {
                 Residence residence = new Residence();
                 residence.setId(7L);
                 residence.setCode(request.getResidenceCode().trim());
+                residence.setCurrency("EUR");
 
                 User user = new User();
                 user.setId(2L);
@@ -99,6 +100,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.userId").value(1L))
                 .andExpect(jsonPath("$.email").value("resident@example.com"))
                 .andExpect(jsonPath("$.residenceId").value(7L))
+                .andExpect(jsonPath("$.currency").value("EUR"))
                 .andExpect(jsonPath("$.role").value("USER"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.token").value(TOKEN));
@@ -154,6 +156,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.email").value("resident@example.com"))
                 .andExpect(jsonPath("$.residenceId").value(7L))
                 .andExpect(jsonPath("$.residenceCode").value("RES-ABC123"))
+                .andExpect(jsonPath("$.currency").value("EUR"))
                 .andExpect(jsonPath("$.numeroImmeuble").value("B"))
                 .andExpect(jsonPath("$.codeLogement").value("12A"))
                 .andExpect(jsonPath("$.role").value("USER"))

@@ -30,6 +30,7 @@ public class ResidenceService {
         residence.setCode(resolveResidenceCode(request.getCode(), null));
         residence.setEnabled(request.getEnabled() == null || request.getEnabled());
         residence.setMontantMensuel(request.getMontantMensuel());
+        residence.setCurrency(normalizeCurrency(request.getCurrency()));
         residence.setCreatedAt(now);
         residence.setUpdatedAt(now);
 
@@ -52,6 +53,7 @@ public class ResidenceService {
         }
         residence.setEnabled(request.getEnabled() == null || request.getEnabled());
         residence.setMontantMensuel(request.getMontantMensuel());
+        residence.setCurrency(normalizeCurrency(request.getCurrency()));
         residence.setUpdatedAt(LocalDateTime.now());
 
         return residenceRepository.save(residence);
@@ -96,10 +98,25 @@ public class ResidenceService {
         if (request.getMontantMensuel().signum() <= 0) {
             throw new IllegalArgumentException("Residence monthly amount must be greater than zero");
         }
+        if (isBlank(request.getCurrency())) {
+            throw new IllegalArgumentException("Residence currency must not be blank");
+        }
+        if (!isValidCurrency(request.getCurrency())) {
+            throw new IllegalArgumentException("Residence currency must be a 3-letter ISO code");
+        }
     }
 
     private boolean isBlank(final String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String normalizeCurrency(final String value) {
+        return value == null ? null : value.trim().toUpperCase();
+    }
+
+    private boolean isValidCurrency(final String value) {
+        String normalizedValue = normalizeCurrency(value);
+        return normalizedValue != null && normalizedValue.matches("[A-Z]{3}");
     }
 
     private String resolveResidenceCode(final String requestedCode, final Long residenceId) {

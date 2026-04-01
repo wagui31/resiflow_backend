@@ -11,6 +11,7 @@ public class ResidenceResponse {
     private final String address;
     private final String code;
     private final BigDecimal montantMensuel;
+    private final String currency;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
     private final Boolean enabled;
@@ -21,6 +22,7 @@ public class ResidenceResponse {
             final String address,
             final String code,
             final BigDecimal montantMensuel,
+            final String currency,
             final LocalDateTime createdAt,
             final LocalDateTime updatedAt,
             final Boolean enabled
@@ -30,6 +32,7 @@ public class ResidenceResponse {
         this.address = address;
         this.code = code;
         this.montantMensuel = montantMensuel;
+        this.currency = currency;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.enabled = enabled;
@@ -40,11 +43,12 @@ public class ResidenceResponse {
             final String name,
             final String address,
             final String code,
+            final String currency,
             final LocalDateTime createdAt,
             final LocalDateTime updatedAt,
             final Boolean enabled
     ) {
-        this(id, name, address, code, null, createdAt, updatedAt, enabled);
+        this(id, name, address, code, null, currency, createdAt, updatedAt, enabled);
     }
 
     public static ResidenceResponse fromResidence(final Residence residence) {
@@ -54,6 +58,7 @@ public class ResidenceResponse {
                 residence.getAddress(),
                 residence.getCode(),
                 residence.getMontantMensuel(),
+                residence.getCurrency(),
                 residence.getCreatedAt(),
                 residence.getUpdatedAt(),
                 residence.getEnabled()
@@ -78,6 +83,10 @@ public class ResidenceResponse {
 
     public BigDecimal getMontantMensuel() {
         return montantMensuel;
+    }
+
+    public String getCurrency() {
+        return currency;
     }
 
     public LocalDateTime getCreatedAt() {

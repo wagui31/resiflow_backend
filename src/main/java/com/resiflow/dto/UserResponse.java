@@ -15,6 +15,7 @@ public class UserResponse {
     private final Long residenceId;
     private final String residenceName;
     private final String residenceCode;
+    private final String currency;
     private final String numeroImmeuble;
     private final String codeLogement;
     private final UserRole role;
@@ -31,6 +32,7 @@ public class UserResponse {
             final Long residenceId,
             final String residenceName,
             final String residenceCode,
+            final String currency,
             final String numeroImmeuble,
             final String codeLogement,
             final UserRole role,
@@ -46,6 +48,7 @@ public class UserResponse {
         this.residenceId = residenceId;
         this.residenceName = residenceName;
         this.residenceCode = residenceCode;
+        this.currency = currency;
         this.numeroImmeuble = numeroImmeuble;
         this.codeLogement = codeLogement;
         this.role = role;
@@ -63,6 +66,7 @@ public class UserResponse {
             final Long residenceId,
             final String residenceName,
             final String residenceCode,
+            final String currency,
             final String numeroImmeuble,
             final String codeLogement,
             final UserRole role,
@@ -78,6 +82,7 @@ public class UserResponse {
                 residenceId,
                 residenceName,
                 residenceCode,
+                currency,
                 numeroImmeuble,
                 codeLogement,
                 role,
@@ -97,6 +102,7 @@ public class UserResponse {
                 user.getResidenceId(),
                 user.getResidence() == null ? null : user.getResidence().getName(),
                 user.getResidence() == null ? null : user.getResidence().getCode(),
+                user.getResidence() == null ? null : user.getResidence().getCurrency(),
                 user.getNumeroImmeuble(),
                 user.getCodeLogement(),
                 user.getRole(),
@@ -133,6 +139,10 @@ public class UserResponse {
 
     public String getResidenceCode() {
         return residenceCode;
+    }
+
+    public String getCurrency() {
+        return currency;
     }
 
     public String getNumeroImmeuble() {

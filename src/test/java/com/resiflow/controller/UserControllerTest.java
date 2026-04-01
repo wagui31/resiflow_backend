@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resiflow.dto.CreateAdminRequest;
 import com.resiflow.dto.UserPaiementHistoryResponse;
 import com.resiflow.entity.StatutPaiement;
+import com.resiflow.entity.Residence;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
@@ -58,10 +59,14 @@ class UserControllerTest {
 
             @Override
             public User getCurrentUser(final AuthenticatedUser authenticatedUser) {
+                Residence residence = new Residence();
+                residence.setId(authenticatedUser.residenceId());
+                residence.setCurrency("EUR");
+
                 User user = new User();
                 user.setId(authenticatedUser.userId());
                 user.setEmail(authenticatedUser.email());
-                user.setResidenceId(authenticatedUser.residenceId());
+                user.setResidence(residence);
                 user.setRole(authenticatedUser.role());
                 user.setStatus(UserStatus.ACTIVE);
                 user.setStatutPaiement(StatutPaiement.A_JOUR);
@@ -149,6 +154,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.id").value(10L))
                 .andExpect(jsonPath("$.email").value("user@example.com"))
                 .andExpect(jsonPath("$.residenceId").value(7L))
+                .andExpect(jsonPath("$.currency").value("EUR"))
                 .andExpect(jsonPath("$.role").value("USER"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.statutPaiement").value("A_JOUR"))
