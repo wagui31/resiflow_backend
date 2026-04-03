@@ -4,6 +4,7 @@ import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.UserStatus;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class CreateUserResponse extends UserResponse {
@@ -19,6 +20,7 @@ public class CreateUserResponse extends UserResponse {
             final String currency,
             final String numeroImmeuble,
             final String codeLogement,
+            final LocalDate dateEntreeResidence,
             final UserRole role,
             final UserStatus status,
             final StatutPaiement statutPaiement,
@@ -36,6 +38,7 @@ public class CreateUserResponse extends UserResponse {
                 currency,
                 numeroImmeuble,
                 codeLogement,
+                dateEntreeResidence,
                 role,
                 status,
                 statutPaiement,
@@ -56,6 +59,7 @@ public class CreateUserResponse extends UserResponse {
                 user.getResidence() == null ? null : user.getResidence().getCurrency(),
                 user.getNumeroImmeuble(),
                 user.getCodeLogement(),
+                user.getDateEntreeResidence(),
                 user.getRole(),
                 user.getStatus(),
                 user.getStatutPaiement(),

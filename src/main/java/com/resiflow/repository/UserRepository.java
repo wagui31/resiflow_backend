@@ -15,6 +15,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByEmailAndStatus(String email, UserStatus status);
+
     boolean existsByEmail(String email);
 
     List<User> findAllByResidence_Id(Long residenceId);
@@ -26,6 +28,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findAllByResidence_IdAndRole(Long residenceId, UserRole role);
 
     Optional<User> findByIdAndResidence_Id(Long id, Long residenceId);
+
+    Optional<User> findByEmailAndResidence_Id(String email, Long residenceId);
+
+    Optional<User> findByEmailAndResidence_IdAndStatus(String email, Long residenceId, UserStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select user from User user where user.id = :id")

@@ -104,6 +104,7 @@ public class AuthService {
         user.setStatutPaiement(StatutPaiement.EN_RETARD);
         user.setNumeroImmeuble(normalizeOptionalValue(request.getNumeroImmeuble()));
         user.setCodeLogement(normalizeOptionalValue(request.getCodeLogement()));
+        user.setDateEntreeResidence(now.toLocalDate());
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
 

@@ -1,9 +1,11 @@
 package com.resiflow.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.UserStatus;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class UserResponse {
@@ -18,6 +20,8 @@ public class UserResponse {
     private final String currency;
     private final String numeroImmeuble;
     private final String codeLogement;
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private final LocalDate dateEntreeResidence;
     private final UserRole role;
     private final UserStatus status;
     private final StatutPaiement statutPaiement;
@@ -35,6 +39,7 @@ public class UserResponse {
             final String currency,
             final String numeroImmeuble,
             final String codeLogement,
+            final LocalDate dateEntreeResidence,
             final UserRole role,
             final UserStatus status,
             final StatutPaiement statutPaiement,
@@ -51,6 +56,7 @@ public class UserResponse {
         this.currency = currency;
         this.numeroImmeuble = numeroImmeuble;
         this.codeLogement = codeLogement;
+        this.dateEntreeResidence = dateEntreeResidence;
         this.role = role;
         this.status = status;
         this.statutPaiement = statutPaiement;
@@ -69,6 +75,7 @@ public class UserResponse {
             final String currency,
             final String numeroImmeuble,
             final String codeLogement,
+            final LocalDate dateEntreeResidence,
             final UserRole role,
             final UserStatus status,
             final LocalDateTime createdAt,
@@ -85,6 +92,7 @@ public class UserResponse {
                 currency,
                 numeroImmeuble,
                 codeLogement,
+                dateEntreeResidence,
                 role,
                 status,
                 null,
@@ -105,6 +113,7 @@ public class UserResponse {
                 user.getResidence() == null ? null : user.getResidence().getCurrency(),
                 user.getNumeroImmeuble(),
                 user.getCodeLogement(),
+                user.getDateEntreeResidence(),
                 user.getRole(),
                 user.getStatus(),
                 user.getStatutPaiement(),
@@ -151,6 +160,10 @@ public class UserResponse {
 
     public String getCodeLogement() {
         return codeLogement;
+    }
+
+    public LocalDate getDateEntreeResidence() {
+        return dateEntreeResidence;
     }
 
     public UserRole getRole() {

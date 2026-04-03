@@ -10,6 +10,7 @@ import com.resiflow.entity.UserStatus;
 import com.resiflow.repository.UserRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.springframework.stereotype.Service;
@@ -68,6 +69,7 @@ public class UserService {
         user.setRole(UserRole.ADMIN);
         user.setStatus(UserStatus.ACTIVE);
         user.setStatutPaiement(StatutPaiement.EN_RETARD);
+        user.setDateEntreeResidence(now.toLocalDate());
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
 
@@ -152,6 +154,25 @@ public class UserService {
         user.setUpdatedAt(LocalDateTime.now());
         User savedUser = userRepository.save(user);
         emailService.sendToUser(savedUser.getEmail(), "Votre demande a été refusée", buildActionBody("rejete", request));
+        return savedUser;
+    }
+
+    @Transactional
+    public User updateResidenceEntryDate(
+            final Long userId,
+            final AuthenticatedUser authenticatedUser,
+            final LocalDate dateEntreeResidence
+    ) {
+        if (dateEntreeResidence == null) {
+            throw new IllegalArgumentException("Date entree residence must not be null");
+        }
+        User user = getManageableUser(userId, authenticatedUser);
+        user.setDateEntreeResidence(dateEntreeResidence);
+        user.setUpdatedAt(LocalDateTime.now());
+        User savedUser = userRepository.save(user);
+        if (paymentStatusService != null) {
+            return paymentStatusService.refreshPaymentStatus(savedUser);
+        }
         return savedUser;
     }
 

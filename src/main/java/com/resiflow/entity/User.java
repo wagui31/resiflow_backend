@@ -58,6 +58,9 @@ public class User {
     @Column(name = "code_logement")
     private String codeLogement;
 
+    @Column(name = "date_entree_residence", nullable = false)
+    private java.time.LocalDate dateEntreeResidence;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -167,6 +170,14 @@ public class User {
         this.codeLogement = codeLogement;
     }
 
+    public java.time.LocalDate getDateEntreeResidence() {
+        return dateEntreeResidence;
+    }
+
+    public void setDateEntreeResidence(final java.time.LocalDate dateEntreeResidence) {
+        this.dateEntreeResidence = dateEntreeResidence;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -191,6 +202,9 @@ public class User {
         }
         if (updatedAt == null) {
             updatedAt = now;
+        }
+        if (dateEntreeResidence == null) {
+            dateEntreeResidence = now.toLocalDate();
         }
     }
 

@@ -1,6 +1,7 @@
 package com.resiflow.controller;
 
 import com.resiflow.dto.AdminUserActionRequest;
+import com.resiflow.dto.UpdateResidenceEntryDateRequest;
 import com.resiflow.dto.UserResponse;
 import com.resiflow.security.AuthenticatedUser;
 import com.resiflow.service.UserService;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 @RequestMapping("/api/admin/users")
@@ -54,5 +56,18 @@ public class AdminUserController {
     ) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         return ResponseEntity.ok(UserResponse.fromUser(userService.rejectUser(id, authenticatedUser, request)));
+    }
+
+    @PutMapping("/{id}/date-entree-residence")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<UserResponse> updateResidenceEntryDate(
+            @PathVariable final Long id,
+            @RequestBody final UpdateResidenceEntryDateRequest request,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(UserResponse.fromUser(
+                userService.updateResidenceEntryDate(id, authenticatedUser, request.getDateEntreeResidence())
+        ));
     }
 }

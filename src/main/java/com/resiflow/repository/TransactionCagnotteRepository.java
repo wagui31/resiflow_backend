@@ -22,4 +22,6 @@ public interface TransactionCagnotteRepository extends JpaRepository<Transaction
             @Param("residenceId") Long residenceId,
             @Param("type") TypeTransactionCagnotte type
     );
+
+    boolean existsByTypeAndReferenceId(TypeTransactionCagnotte type, Long referenceId);
 }

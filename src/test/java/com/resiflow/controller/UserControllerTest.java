@@ -3,6 +3,7 @@ package com.resiflow.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resiflow.dto.CreateAdminRequest;
 import com.resiflow.dto.UserPaiementHistoryResponse;
+import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.User;
@@ -72,6 +73,7 @@ class UserControllerTest {
                 user.setStatutPaiement(StatutPaiement.A_JOUR);
                 user.setNumeroImmeuble("B");
                 user.setCodeLogement("12A");
+                user.setDateEntreeResidence(LocalDate.of(2026, 1, 15));
                 LocalDateTime now = LocalDateTime.now();
                 user.setCreatedAt(now);
                 user.setUpdatedAt(now);
@@ -88,15 +90,15 @@ class UserControllerTest {
                 return List.of(
                         new UserPaiementHistoryResponse(
                                 LocalDate.of(2026, 3, 1),
-                                LocalDate.of(2026, 4, 1),
+                                LocalDate.of(2026, 3, 31),
                                 new BigDecimal("150.00"),
-                                StatutPaiement.A_JOUR
+                                PaiementStatus.VALIDATED
                         ),
                         new UserPaiementHistoryResponse(
                                 LocalDate.of(2026, 1, 1),
-                                LocalDate.of(2026, 2, 1),
+                                LocalDate.of(2026, 2, 28),
                                 new BigDecimal("150.00"),
-                                StatutPaiement.EN_RETARD
+                                PaiementStatus.PENDING
                         )
                 );
             }
@@ -159,7 +161,8 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.statutPaiement").value("A_JOUR"))
                 .andExpect(jsonPath("$.numeroImmeuble").value("B"))
-                .andExpect(jsonPath("$.codeLogement").value("12A"));
+                .andExpect(jsonPath("$.codeLogement").value("12A"))
+                .andExpect(jsonPath("$.dateEntreeResidence").value("2026-01-15"));
     }
 
     @Test
@@ -170,11 +173,11 @@ class UserControllerTest {
                         .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].dateDebut").value("2026-03-01"))
-                .andExpect(jsonPath("$[0].dateFin").value("2026-04-01"))
+                .andExpect(jsonPath("$[0].dateFin").value("2026-03-31"))
                 .andExpect(jsonPath("$[0].montantTotal").value(150.00))
-                .andExpect(jsonPath("$[0].statut").value("A_JOUR"))
+                .andExpect(jsonPath("$[0].status").value("VALIDATED"))
                 .andExpect(jsonPath("$[0].id").doesNotExist())
                 .andExpect(jsonPath("$[0].datePaiement").doesNotExist())
-                .andExpect(jsonPath("$[1].statut").value("EN_RETARD"));
+                .andExpect(jsonPath("$[1].status").value("PENDING"));
     }
 }

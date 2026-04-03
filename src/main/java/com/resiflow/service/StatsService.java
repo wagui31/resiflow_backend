@@ -4,6 +4,7 @@ import com.resiflow.dto.EvolutionCagnotteResponse;
 import com.resiflow.dto.StatsResponse;
 import com.resiflow.dto.TopPayeurResponse;
 import com.resiflow.entity.Paiement;
+import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.TransactionCagnotte;
 import com.resiflow.entity.TypeTransactionCagnotte;
 import com.resiflow.repository.PaiementRepository;
@@ -43,7 +44,8 @@ public class StatsService {
     public StatsResponse getStats(final Long residenceId, final AuthenticatedUser authenticatedUser) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
 
-        List<Paiement> paiements = paiementRepository.findAllByResidence_IdOrderByDatePaiementDesc(residenceId);
+        List<Paiement> paiements =
+                paiementRepository.findAllByResidence_IdAndStatusOrderByDatePaiementDesc(residenceId, PaiementStatus.VALIDATED);
         List<TransactionCagnotte> transactions =
                 transactionCagnotteRepository.findAllByResidence_IdOrderByDateCreationDesc(residenceId);
 

@@ -98,7 +98,7 @@ class SecurityConfigTest {
     @Test
     void loginEndpointIsPublic() throws Exception {
         when(authService.login(any(LoginRequest.class)))
-                .thenReturn(new LoginResponse(4L, "resident@example.com", 12L, UserRole.USER, UserStatus.ACTIVE, "jwt-token"));
+                .thenReturn(new LoginResponse(4L, "resident@example.com", 12L, "EUR", UserRole.USER, UserStatus.ACTIVE, "jwt-token"));
 
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -119,7 +119,7 @@ class SecurityConfigTest {
         user.setRole(UserRole.USER);
         user.setStatus(UserStatus.PENDING);
 
-        when(authService.register(any(RegisterRequest.class))).thenReturn(user);
+        when(authService.register(any(RegisterRequest.class), any())).thenReturn(user);
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

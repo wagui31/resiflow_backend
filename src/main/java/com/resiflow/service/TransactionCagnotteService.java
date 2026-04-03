@@ -17,6 +17,9 @@ public class TransactionCagnotteService {
     }
 
     public TransactionCagnotte createContributionTransaction(final Paiement paiement) {
+        if (transactionCagnotteRepository.existsByTypeAndReferenceId(TypeTransactionCagnotte.CONTRIBUTION, paiement.getId())) {
+            throw new IllegalStateException("Contribution transaction already exists for paiement " + paiement.getId());
+        }
         TransactionCagnotte transaction = new TransactionCagnotte();
         transaction.setResidence(paiement.getResidence());
         transaction.setUser(paiement.getUtilisateur());

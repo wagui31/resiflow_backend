@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -51,6 +53,10 @@ public class Paiement {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "cree_par", nullable = false)
     private User creePar;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private PaiementStatus status;
 
     public Long getId() {
         return id;
@@ -132,10 +138,21 @@ public class Paiement {
         this.creePar = creePar;
     }
 
+    public PaiementStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(final PaiementStatus status) {
+        this.status = status;
+    }
+
     @PrePersist
     public void prePersist() {
         if (datePaiement == null) {
             datePaiement = LocalDateTime.now();
+        }
+        if (status == null) {
+            status = PaiementStatus.PENDING;
         }
     }
 }
