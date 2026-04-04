@@ -11,7 +11,8 @@ import com.resiflow.entity.UserStatus;
 import com.resiflow.repository.UserRepository;
 import com.resiflow.security.JwtService;
 import java.time.LocalDateTime;
-import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,23 +28,23 @@ public class AuthService {
     private final ResidenceService residenceService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
-    private final EmailService emailService;
     private final CaptchaVerificationService captchaVerificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AuthService(
             final UserRepository userRepository,
             final ResidenceService residenceService,
             final JwtService jwtService,
             final PasswordEncoder passwordEncoder,
-            final EmailService emailService,
-            final CaptchaVerificationService captchaVerificationService
+            final CaptchaVerificationService captchaVerificationService,
+            final ApplicationEventPublisher eventPublisher
     ) {
         this.userRepository = userRepository;
         this.residenceService = residenceService;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
-        this.emailService = emailService;
         this.captchaVerificationService = captchaVerificationService;
+        this.eventPublisher = eventPublisher;
     }
 
     public LoginResponse login(final LoginRequest request) {
@@ -108,17 +109,14 @@ public class AuthService {
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
 
-        User savedUser = userRepository.save(user);
+        User savedUser;
+        try {
+            savedUser = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException exception) {
+            throw translateRegisterDataIntegrityViolation(exception, email);
+        }
 
-        List<String> adminEmails = userRepository.findAllByResidence_IdAndRole(savedUser.getResidenceId(), UserRole.ADMIN)
-                .stream()
-                .map(User::getEmail)
-                .toList();
-        emailService.sendToAdmins(
-                adminEmails,
-                "Nouvelle demande d'inscription",
-                "Un nouvel utilisateur a demande l'acces a la residence. Email: " + savedUser.getEmail()
-        );
+        eventPublisher.publishEvent(new RegistrationCompletedEvent(savedUser.getResidenceId(), savedUser.getEmail()));
 
         return savedUser;
     }
@@ -162,6 +160,12 @@ public class AuthService {
         if (isBlank(request.getEmail())) {
             throw new IllegalArgumentException("Email must not be blank");
         }
+        if (isBlank(request.getFirstName())) {
+            throw new IllegalArgumentException("First name must not be blank");
+        }
+        if (isBlank(request.getLastName())) {
+            throw new IllegalArgumentException("Last name must not be blank");
+        }
         if (isBlank(request.getPassword())) {
             throw new IllegalArgumentException("Password must not be blank");
         }
@@ -174,5 +178,22 @@ public class AuthService {
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyUsedException("Email is already used");
         }
+    }
+
+    private RuntimeException translateRegisterDataIntegrityViolation(
+            final DataIntegrityViolationException exception,
+            final String email
+    ) {
+        Throwable cause = exception;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+
+        String message = cause.getMessage();
+        if (message != null && message.contains("uk_users_email")) {
+            return new EmailAlreadyUsedException("Email is already used");
+        }
+
+        return exception;
     }
 }

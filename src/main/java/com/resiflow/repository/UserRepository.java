@@ -27,6 +27,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findAllByResidence_IdAndRole(Long residenceId, UserRole role);
 
+    long countByResidence_IdAndRole(Long residenceId, UserRole role);
+
     Optional<User> findByIdAndResidence_Id(Long id, Long residenceId);
 
     Optional<User> findByEmailAndResidence_Id(String email, Long residenceId);

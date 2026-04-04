@@ -1,6 +1,7 @@
 package com.resiflow.controller;
 
 import com.resiflow.dto.CreateAdminRequest;
+import com.resiflow.dto.UpdateCurrentUserRequest;
 import com.resiflow.dto.UserPaiementHistoryResponse;
 import com.resiflow.dto.UserResponse;
 import com.resiflow.entity.User;
@@ -15,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -48,11 +50,31 @@ public class UserController {
         return ResponseEntity.ok(responses);
     }
 
+    @GetMapping("/residence")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<UserResponse>> getResidenceUsers(final Authentication authentication) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        List<UserResponse> responses = userService.getResidenceUsers(authenticatedUser).stream()
+                .map(UserResponse::fromUser)
+                .toList();
+        return ResponseEntity.ok(responses);
+    }
+
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserResponse> getCurrentUser(final Authentication authentication) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         return ResponseEntity.ok(UserResponse.fromUser(userService.getCurrentUser(authenticatedUser)));
+    }
+
+    @PutMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserResponse> updateCurrentUser(
+            @RequestBody final UpdateCurrentUserRequest request,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(UserResponse.fromUser(userService.updateCurrentUser(authenticatedUser, request)));
     }
 
     @GetMapping("/{id}/paiements")

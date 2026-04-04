@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestClient;
@@ -48,8 +50,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 jwtService,
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceDisabled()
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
         );
 
         LoginRequest request = new LoginRequest();
@@ -74,8 +76,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceDisabled()
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
         );
 
         LoginRequest request = new LoginRequest();
@@ -94,8 +96,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceDisabled()
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
         );
 
         assertThatThrownBy(() -> authService.login(null))
@@ -110,8 +112,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceDisabled()
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
         );
 
         LoginRequest request = new LoginRequest();
@@ -130,8 +132,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceDisabled()
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
         );
 
         LoginRequest request = new LoginRequest();
@@ -156,8 +158,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceDisabled()
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
         );
 
         LoginRequest request = new LoginRequest();
@@ -182,8 +184,8 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceDisabled()
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
         );
 
         LoginRequest request = new LoginRequest();
@@ -200,18 +202,20 @@ class AuthServiceTest {
     @Test
     void registerCreatesPendingResidenceUser() {
         AtomicReference<User> savedUserRef = new AtomicReference<>();
-        RecordingEmailService emailService = new RecordingEmailService();
+        RecordingEventPublisher eventPublisher = new RecordingEventPublisher();
         AuthService authService = new AuthService(
                 repositoryProxy(Optional.empty(), savedUserRef, List.of("admin@example.com")),
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                emailService,
-                captchaServiceDisabled()
+                captchaServiceDisabled(),
+                eventPublisher
         );
 
         RegisterRequest request = new RegisterRequest();
         request.setEmail(" resident@example.com ");
+        request.setFirstName(" Lea ");
+        request.setLastName(" Martin ");
         request.setPassword(" secret ");
         request.setResidenceCode(" RES-ABC123 ");
         request.setNumeroImmeuble(" B ");
@@ -221,6 +225,8 @@ class AuthServiceTest {
         User result = authService.register(request);
 
         assertThat(savedUserRef.get().getEmail()).isEqualTo("resident@example.com");
+        assertThat(savedUserRef.get().getFirstName()).isEqualTo("Lea");
+        assertThat(savedUserRef.get().getLastName()).isEqualTo("Martin");
         assertThat(passwordEncoder.matches("secret", savedUserRef.get().getPassword())).isTrue();
         assertThat(savedUserRef.get().getRole()).isEqualTo(UserRole.USER);
         assertThat(savedUserRef.get().getStatus()).isEqualTo(UserStatus.PENDING);
@@ -231,9 +237,10 @@ class AuthServiceTest {
         assertThat(savedUserRef.get().getUpdatedAt()).isNotNull();
         assertThat(savedUserRef.get().getUpdatedAt()).isEqualTo(savedUserRef.get().getCreatedAt());
         assertThat(result.getId()).isEqualTo(99L);
-        assertThat(emailService.adminRecipients).containsExactly("admin@example.com");
-        assertThat(emailService.adminSubject).isEqualTo("Nouvelle demande d'inscription");
-        assertThat(emailService.adminBody).contains("resident@example.com");
+        assertThat(eventPublisher.lastEvent).isInstanceOf(RegistrationCompletedEvent.class);
+        RegistrationCompletedEvent event = (RegistrationCompletedEvent) eventPublisher.lastEvent;
+        assertThat(event.residenceId()).isEqualTo(12L);
+        assertThat(event.email()).isEqualTo("resident@example.com");
     }
 
     @Test
@@ -243,12 +250,14 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceEnabledWithValidResponse()
+                captchaServiceEnabledWithValidResponse(),
+                eventPublisherNoOp()
         );
 
         RegisterRequest request = new RegisterRequest();
         request.setEmail("resident@example.com");
+        request.setFirstName("Lea");
+        request.setLastName("Martin");
         request.setPassword("secret");
         request.setResidenceCode("RES-ABC123");
 
@@ -265,12 +274,14 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceEnabledWithValidResponse()
+                captchaServiceEnabledWithValidResponse(),
+                eventPublisherNoOp()
         );
 
         RegisterRequest request = new RegisterRequest();
         request.setEmail("resident@example.com");
+        request.setFirstName("Lea");
+        request.setLastName("Martin");
         request.setPassword("secret");
         request.setResidenceCode("RES-ABC123");
 
@@ -288,12 +299,14 @@ class AuthServiceTest {
                 residenceServiceStub(),
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
-                new EmailService(),
-                captchaServiceEnabledWithInvalidResponse()
+                captchaServiceEnabledWithInvalidResponse(),
+                eventPublisherNoOp()
         );
 
         RegisterRequest request = new RegisterRequest();
         request.setEmail("resident@example.com");
+        request.setFirstName("Lea");
+        request.setLastName("Martin");
         request.setPassword("secret");
         request.setResidenceCode("RES-ABC123");
         request.setCaptchaToken("bad-captcha");
@@ -301,6 +314,84 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.register(request))
                 .isInstanceOf(CaptchaValidationException.class)
                 .hasMessage("Captcha validation failed");
+    }
+
+    @Test
+    void registerTranslatesDuplicateEmailConstraintViolation() {
+        RecordingEventPublisher eventPublisher = new RecordingEventPublisher();
+        AuthService authService = new AuthService(
+                repositoryProxyThrowingOnSaveAndFlush(
+                        Optional.empty(),
+                        new DataIntegrityViolationException(
+                                "duplicate",
+                                new RuntimeException("ERROR: duplicate key value violates unique constraint \"uk_users_email\"")
+                        )
+                ),
+                residenceServiceStub(),
+                new JwtService(new JwtProperties(SECRET, 3600000)),
+                passwordEncoder,
+                captchaServiceDisabled(),
+                eventPublisher
+        );
+
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("resident@example.com");
+        request.setFirstName("Lea");
+        request.setLastName("Martin");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+        request.setCaptchaToken("captcha-token");
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(EmailAlreadyUsedException.class)
+                .hasMessage("Email is already used");
+        assertThat(eventPublisher.lastEvent).isNull();
+    }
+
+    @Test
+    void registerRejectsBlankFirstName() {
+        AuthService authService = new AuthService(
+                repositoryProxy(Optional.empty(), new AtomicReference<>(), List.of()),
+                residenceServiceStub(),
+                new JwtService(new JwtProperties(SECRET, 3600000)),
+                passwordEncoder,
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
+        );
+
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("resident@example.com");
+        request.setFirstName(" ");
+        request.setLastName("Martin");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("First name must not be blank");
+    }
+
+    @Test
+    void registerRejectsBlankLastName() {
+        AuthService authService = new AuthService(
+                repositoryProxy(Optional.empty(), new AtomicReference<>(), List.of()),
+                residenceServiceStub(),
+                new JwtService(new JwtProperties(SECRET, 3600000)),
+                passwordEncoder,
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
+        );
+
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("resident@example.com");
+        request.setFirstName("Lea");
+        request.setLastName(" ");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+
+        assertThatThrownBy(() -> authService.register(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Last name must not be blank");
     }
 
     private UserRepository repositoryProxy(
@@ -315,12 +406,14 @@ class AuthServiceTest {
             if ("existsByEmail".equals(method.getName())) {
                 return userToReturn.isPresent();
             }
-            if ("save".equals(method.getName())) {
+            if ("save".equals(method.getName()) || "saveAndFlush".equals(method.getName())) {
                 User user = (User) args[0];
                 savedUserRef.set(user);
                 User saved = new User();
                 saved.setId(99L);
                 saved.setEmail(user.getEmail());
+                saved.setFirstName(user.getFirstName());
+                saved.setLastName(user.getLastName());
                 saved.setPassword(user.getPassword());
                 saved.setResidence(user.getResidence());
                 saved.setNumeroImmeuble(user.getNumeroImmeuble());
@@ -342,6 +435,41 @@ class AuthServiceTest {
             }
             if ("toString".equals(method.getName())) {
                 return "UserRepositoryTestProxy";
+            }
+            if ("hashCode".equals(method.getName())) {
+                return System.identityHashCode(proxy);
+            }
+            if ("equals".equals(method.getName())) {
+                return proxy == args[0];
+            }
+            throw new UnsupportedOperationException("Unsupported method: " + method.getName());
+        };
+
+        return (UserRepository) Proxy.newProxyInstance(
+                UserRepository.class.getClassLoader(),
+                new Class<?>[]{UserRepository.class},
+                handler);
+    }
+
+    private UserRepository repositoryProxyThrowingOnSaveAndFlush(
+            final Optional<User> userToReturn,
+            final RuntimeException saveException
+    ) {
+        InvocationHandler handler = (proxy, method, args) -> {
+            if ("findByEmail".equals(method.getName())) {
+                return userToReturn;
+            }
+            if ("existsByEmail".equals(method.getName())) {
+                return userToReturn.isPresent();
+            }
+            if ("saveAndFlush".equals(method.getName())) {
+                throw saveException;
+            }
+            if ("findAllByResidence_IdAndRole".equals(method.getName())) {
+                return List.of();
+            }
+            if ("toString".equals(method.getName())) {
+                return "UserRepositorySaveAndFlushFailureProxy";
             }
             if ("hashCode".equals(method.getName())) {
                 return System.identityHashCode(proxy);
@@ -450,18 +578,18 @@ class AuthServiceTest {
         );
     }
 
-    private static final class RecordingEmailService extends EmailService {
+    private ApplicationEventPublisher eventPublisherNoOp() {
+        return event -> {
+        };
+    }
 
-        private final List<String> adminRecipients = new ArrayList<>();
-        private String adminSubject;
-        private String adminBody;
+    private static final class RecordingEventPublisher implements ApplicationEventPublisher {
+
+        private Object lastEvent;
 
         @Override
-        public void sendToAdmins(final List<String> recipients, final String subject, final String body) {
-            adminRecipients.clear();
-            adminRecipients.addAll(recipients);
-            adminSubject = subject;
-            adminBody = body;
+        public void publishEvent(final Object event) {
+            this.lastEvent = event;
         }
     }
 }

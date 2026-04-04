@@ -10,11 +10,13 @@ import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
 import com.resiflow.service.AuthService;
 import com.resiflow.service.CaptchaVerificationService;
+import com.resiflow.service.EmailAlreadyUsedException;
 import com.resiflow.service.EmailService;
 import com.resiflow.service.InvalidCredentialsException;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.client.RestClient;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -41,8 +43,8 @@ class AuthControllerTest {
                 null,
                 null,
                 new BCryptPasswordEncoder(),
-                new EmailService(),
-                new CaptchaVerificationService(new com.resiflow.config.CaptchaProperties(false, "", "", ""), RestClient.builder().build())
+                new CaptchaVerificationService(new com.resiflow.config.CaptchaProperties(false, "", "", ""), RestClient.builder().build()),
+                noOpEventPublisher()
         ) {
             @Override
             public LoginResponse login(final LoginRequest request) {
@@ -61,6 +63,15 @@ class AuthControllerTest {
                 if (request == null || request.getResidenceCode() == null || request.getResidenceCode().trim().isEmpty()) {
                     throw new IllegalArgumentException("Residence code must not be blank");
                 }
+                if (request.getFirstName() == null || request.getFirstName().trim().isEmpty()) {
+                    throw new IllegalArgumentException("First name must not be blank");
+                }
+                if (request.getLastName() == null || request.getLastName().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Last name must not be blank");
+                }
+                if ("duplicate@example.com".equals(request.getEmail().trim())) {
+                    throw new EmailAlreadyUsedException("Email is already used");
+                }
 
                 Residence residence = new Residence();
                 residence.setId(7L);
@@ -70,6 +81,8 @@ class AuthControllerTest {
                 User user = new User();
                 user.setId(2L);
                 user.setEmail(request.getEmail().trim());
+                user.setFirstName(request.getFirstName().trim());
+                user.setLastName(request.getLastName().trim());
                 user.setResidence(residence);
                 user.setNumeroImmeuble(request.getNumeroImmeuble());
                 user.setCodeLogement(request.getCodeLogement());
@@ -85,6 +98,11 @@ class AuthControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    private ApplicationEventPublisher noOpEventPublisher() {
+        return event -> {
+        };
     }
 
     @Test
@@ -142,6 +160,8 @@ class AuthControllerTest {
     void registerReturnsPendingUser() throws Exception {
         RegisterRequest request = new RegisterRequest();
         request.setEmail("resident@example.com");
+        request.setFirstName("Lea");
+        request.setLastName("Martin");
         request.setPassword("secret");
         request.setResidenceCode("RES-ABC123");
         request.setNumeroImmeuble("B");
@@ -154,6 +174,8 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(2L))
                 .andExpect(jsonPath("$.email").value("resident@example.com"))
+                .andExpect(jsonPath("$.firstName").value("Lea"))
+                .andExpect(jsonPath("$.lastName").value("Martin"))
                 .andExpect(jsonPath("$.residenceId").value(7L))
                 .andExpect(jsonPath("$.residenceCode").value("RES-ABC123"))
                 .andExpect(jsonPath("$.currency").value("EUR"))
@@ -163,5 +185,65 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.createdAt").isNotEmpty())
                 .andExpect(jsonPath("$.updatedAt").isNotEmpty());
+    }
+
+    @Test
+    void registerReturnsBadRequestWhenEmailAlreadyExists() throws Exception {
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("duplicate@example.com");
+        request.setFirstName("Lea");
+        request.setLastName("Martin");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+        request.setCaptchaToken("captcha-token");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_USED"))
+                .andExpect(jsonPath("$.message").value("Email is already used"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
+    @Test
+    void registerReturnsBadRequestWhenFirstNameIsBlank() throws Exception {
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("resident@example.com");
+        request.setFirstName(" ");
+        request.setLastName("Martin");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+        request.setCaptchaToken("captcha-token");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value("First name must not be blank"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
+    }
+
+    @Test
+    void registerReturnsBadRequestWhenLastNameIsBlank() throws Exception {
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("resident@example.com");
+        request.setFirstName("Lea");
+        request.setLastName(" ");
+        request.setPassword("secret");
+        request.setResidenceCode("RES-ABC123");
+        request.setCaptchaToken("captcha-token");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value("Last name must not be blank"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
     }
 }

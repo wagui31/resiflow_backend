@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: resiflow-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/resiflow
+      SPRING_DATASOURCE_USERNAME: resiflow
+      SPRING_DATASOURCE_PASSWORD: resiflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: resiflow-postgres
+    environment:
+      POSTGRES_DB: resiflow
+      POSTGRES_USER: resiflow
+      POSTGRES_PASSWORD: resiflow
+    ports:
+      - "5600:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resiflow -d resiflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

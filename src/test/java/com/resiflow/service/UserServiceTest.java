@@ -10,12 +10,12 @@ import com.resiflow.repository.UserRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.lang.reflect.Proxy;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,7 +34,7 @@ class UserServiceTest {
                 repositoryProxy(savedUserRef, Optional.empty(), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
-                new EmailService()
+                eventPublisherNoOp()
         );
 
         CreateAdminRequest request = new CreateAdminRequest();
@@ -62,7 +62,7 @@ class UserServiceTest {
                 repositoryProxy(new AtomicReference<>(), Optional.empty(), List.of(pendingUser), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
-                new EmailService()
+                eventPublisherNoOp()
         );
 
         List<User> result = userService.getPendingUsers(new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN));
@@ -74,12 +74,12 @@ class UserServiceTest {
     void approveUserActivatesPendingUserInSameResidence() {
         AtomicReference<User> savedUserRef = new AtomicReference<>();
         User pendingUser = buildUser(14L, "pending@example.com", 7L, UserRole.USER, UserStatus.PENDING);
-        RecordingEmailService emailService = new RecordingEmailService();
+        RecordingEventPublisher eventPublisher = new RecordingEventPublisher();
         UserService userService = new UserService(
                 repositoryProxy(savedUserRef, Optional.of(pendingUser), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
-                emailService
+                eventPublisher
         );
 
         User result = userService.approveUser(
@@ -91,9 +91,11 @@ class UserServiceTest {
         assertThat(savedUserRef.get().getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(savedUserRef.get().getUpdatedAt()).isNotNull();
         assertThat(result.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(emailService.userRecipient).isEqualTo("pending@example.com");
-        assertThat(emailService.userSubject).isEqualTo("Votre compte ResiFlow est valide");
-        assertThat(emailService.userBody).contains("Vous pouvez vous connecter");
+        assertThat(eventPublisher.lastEvent).isInstanceOf(UserEmailNotificationEvent.class);
+        UserEmailNotificationEvent event = (UserEmailNotificationEvent) eventPublisher.lastEvent;
+        assertThat(event.recipient()).isEqualTo("pending@example.com");
+        assertThat(event.subject()).isEqualTo("Votre compte ResiFlow est valide");
+        assertThat(event.body()).contains("Vous pouvez vous connecter");
     }
 
     @Test
@@ -103,7 +105,7 @@ class UserServiceTest {
                 repositoryProxy(new AtomicReference<>(), Optional.of(activeUser), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
-                new EmailService()
+                eventPublisherNoOp()
         );
 
         assertThatThrownBy(() -> userService.approveUser(
@@ -112,7 +114,7 @@ class UserServiceTest {
                 new AdminUserActionRequest()
         ))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Compte déjà validé");
+                .hasMessage("Compte deja valide");
     }
 
     @Test
@@ -122,7 +124,7 @@ class UserServiceTest {
                 repositoryProxy(new AtomicReference<>(), Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
-                new EmailService()
+                eventPublisherNoOp()
         );
 
         assertThatThrownBy(() -> userService.rejectUser(
@@ -132,6 +134,65 @@ class UserServiceTest {
         ))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Residence admins cannot manage other admins");
+    }
+
+    @Test
+    void updateUserRolePromotesResidentToAdminInSameResidence() {
+        AtomicReference<User> savedUserRef = new AtomicReference<>();
+        User resident = buildUser(14L, "resident@example.com", 7L, UserRole.USER, UserStatus.ACTIVE);
+        UserService userService = new UserService(
+                repositoryProxy(savedUserRef, Optional.of(resident), Collections.emptyList(), Collections.emptyList()),
+                passwordEncoder,
+                residenceServiceStub(),
+                eventPublisherNoOp()
+        );
+
+        User result = userService.updateUserRole(
+                14L,
+                new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN),
+                UserRole.ADMIN
+        );
+
+        assertThat(savedUserRef.get().getRole()).isEqualTo(UserRole.ADMIN);
+        assertThat(result.getRole()).isEqualTo(UserRole.ADMIN);
+    }
+
+    @Test
+    void updateUserRoleRejectsChangingOwnRole() {
+        User self = buildUser(10L, "admin@example.com", 7L, UserRole.ADMIN, UserStatus.ACTIVE);
+        UserService userService = new UserService(
+                repositoryProxy(new AtomicReference<>(), Optional.of(self), Collections.emptyList(), Collections.emptyList()),
+                passwordEncoder,
+                residenceServiceStub(),
+                eventPublisherNoOp()
+        );
+
+        assertThatThrownBy(() -> userService.updateUserRole(
+                10L,
+                new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN),
+                UserRole.USER
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot change your own role");
+    }
+
+    @Test
+    void updateUserRoleRejectsDemotingLastAdmin() {
+        User managedAdmin = buildUser(20L, "other-admin@example.com", 7L, UserRole.ADMIN, UserStatus.ACTIVE);
+        UserService userService = new UserService(
+                repositoryProxy(new AtomicReference<>(), Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList()),
+                passwordEncoder,
+                residenceServiceStub(),
+                eventPublisherNoOp()
+        );
+
+        assertThatThrownBy(() -> userService.updateUserRole(
+                20L,
+                new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN),
+                UserRole.USER
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("At least one admin must remain in the residence");
     }
 
     private UserRepository repositoryProxy(
@@ -176,6 +237,12 @@ class UserServiceTest {
                             || "findByIdForUpdate".equals(method.getName())) {
                         return managedUser;
                     }
+                    if ("countByResidence_IdAndRole".equals(method.getName())) {
+                        if (managedUser.isPresent() && managedUser.get().getRole() == UserRole.ADMIN) {
+                            return 1L;
+                        }
+                        return 0L;
+                    }
                     if ("toString".equals(method.getName())) {
                         return "UserRepositoryTestProxy";
                     }
@@ -201,6 +268,11 @@ class UserServiceTest {
         };
     }
 
+    private ApplicationEventPublisher eventPublisherNoOp() {
+        return event -> {
+        };
+    }
+
     private User buildUser(
             final Long id,
             final String email,
@@ -220,24 +292,13 @@ class UserServiceTest {
         return user;
     }
 
-    private static final class RecordingEmailService extends EmailService {
+    private static final class RecordingEventPublisher implements ApplicationEventPublisher {
 
-        private final List<String> adminRecipients = new ArrayList<>();
-        private String userRecipient;
-        private String userSubject;
-        private String userBody;
+        private Object lastEvent;
 
         @Override
-        public void sendToAdmins(final List<String> recipients, final String subject, final String body) {
-            adminRecipients.clear();
-            adminRecipients.addAll(recipients);
-        }
-
-        @Override
-        public void sendToUser(final String recipient, final String subject, final String body) {
-            userRecipient = recipient;
-            userSubject = subject;
-            userBody = body;
+        public void publishEvent(final Object event) {
+            this.lastEvent = event;
         }
     }
 }
