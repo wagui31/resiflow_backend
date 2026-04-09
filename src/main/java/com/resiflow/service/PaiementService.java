@@ -1,19 +1,25 @@
 package com.resiflow.service;
 
-import com.resiflow.dto.CreatePaiementRequest;
+import com.resiflow.dto.CreateAdminDepensePartagePaiementRequest;
+import com.resiflow.dto.CreateDepensePartagePaiementRequest;
 import com.resiflow.dto.CreateMyPaiementRequest;
+import com.resiflow.dto.CreatePaiementRequest;
 import com.resiflow.dto.PaymentHistoryItemResponse;
 import com.resiflow.dto.PaymentStatusMonthResponse;
 import com.resiflow.dto.PaymentStatusTimelineResponse;
 import com.resiflow.dto.PendingPaymentResponse;
 import com.resiflow.dto.ResidenceImpayeResponse;
 import com.resiflow.dto.UserPaiementHistoryResponse;
+import com.resiflow.entity.Depense;
 import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.PaymentMonth;
 import com.resiflow.entity.PaymentMonthStatus;
 import com.resiflow.entity.Residence;
+import com.resiflow.entity.StatutDepense;
 import com.resiflow.entity.StatutPaiement;
+import com.resiflow.entity.TypeDepense;
+import com.resiflow.entity.TypePaiement;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
@@ -49,6 +55,7 @@ public class PaiementService {
     private final TransactionCagnotteService transactionCagnotteService;
     private final UserRepository userRepository;
     private final PaymentMonthRepository paymentMonthRepository;
+    private final DepenseService depenseService;
 
     @Autowired
     public PaiementService(
@@ -57,7 +64,8 @@ public class PaiementService {
             final PaymentStatusService paymentStatusService,
             final TransactionCagnotteService transactionCagnotteService,
             final UserRepository userRepository,
-            final PaymentMonthRepository paymentMonthRepository
+            final PaymentMonthRepository paymentMonthRepository,
+            final DepenseService depenseService
     ) {
         this.paiementRepository = paiementRepository;
         this.residenceAccessService = residenceAccessService;
@@ -65,6 +73,7 @@ public class PaiementService {
         this.transactionCagnotteService = transactionCagnotteService;
         this.userRepository = userRepository;
         this.paymentMonthRepository = paymentMonthRepository;
+        this.depenseService = depenseService;
     }
 
     public PaiementService(
@@ -80,6 +89,26 @@ public class PaiementService {
                 paymentStatusService,
                 transactionCagnotteService,
                 userRepository,
+                null,
+                null
+        );
+    }
+
+    public PaiementService(
+            final PaiementRepository paiementRepository,
+            final ResidenceAccessService residenceAccessService,
+            final PaymentStatusService paymentStatusService,
+            final TransactionCagnotteService transactionCagnotteService,
+            final UserRepository userRepository,
+            final PaymentMonthRepository paymentMonthRepository
+    ) {
+        this(
+                paiementRepository,
+                residenceAccessService,
+                paymentStatusService,
+                transactionCagnotteService,
+                userRepository,
+                paymentMonthRepository,
                 null
         );
     }
@@ -90,7 +119,7 @@ public class PaiementService {
 
         Residence residence = residenceAccessService.getResidenceForAdmin(request.getResidenceId(), authenticatedUser);
         User utilisateur = residenceAccessService.getUserForRead(request.getUtilisateurId(), authenticatedUser);
-        return createPaiementForUser(utilisateur, residence, request.getNombreMois(), request.getDateDebut(), authenticatedUser);
+        return createCagnottePaiementForUser(utilisateur, residence, request.getNombreMois(), request.getDateDebut(), authenticatedUser);
     }
 
     @Transactional
@@ -103,7 +132,7 @@ public class PaiementService {
             throw new IllegalStateException("Authenticated user is not assigned to a residence");
         }
 
-        return createPaiementForUser(utilisateur, residence, request.getNombreMois(), request.getDateDebut(), authenticatedUser);
+        return createCagnottePaiementForUser(utilisateur, residence, request.getNombreMois(), request.getDateDebut(), authenticatedUser);
     }
 
     @Transactional
@@ -119,7 +148,33 @@ public class PaiementService {
             throw new IllegalStateException("Target user is not assigned to a residence");
         }
 
-        return createPaiementForUser(utilisateur, residence, request.getNombreMois(), request.getDateDebut(), authenticatedUser);
+        return createCagnottePaiementForUser(utilisateur, residence, request.getNombreMois(), request.getDateDebut(), authenticatedUser);
+    }
+
+    @Transactional
+    public Paiement createMyDepensePartagePaiement(
+            final Long depenseId,
+            final CreateDepensePartagePaiementRequest request,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        validateCreateDepensePartageRequest(request);
+        if (authenticatedUser == null || authenticatedUser.userId() == null) {
+            throw new IllegalArgumentException("Authenticated user must not be null");
+        }
+
+        User utilisateur = residenceAccessService.getUserForRead(authenticatedUser.userId(), authenticatedUser);
+        return createDepensePartagePaiement(depenseId, utilisateur, request.getMontant(), authenticatedUser, false);
+    }
+
+    @Transactional
+    public Paiement createAdminDepensePartagePaiement(
+            final Long depenseId,
+            final CreateAdminDepensePartagePaiementRequest request,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        validateCreateAdminDepensePartageRequest(request);
+        User utilisateur = residenceAccessService.getUserForRead(request.getUtilisateurId(), authenticatedUser);
+        return createDepensePartagePaiement(depenseId, utilisateur, request.getMontant(), authenticatedUser, true);
     }
 
     @Transactional
@@ -131,9 +186,11 @@ public class PaiementService {
 
         paiement.setStatus(PaiementStatus.VALIDATED);
         Paiement savedPaiement = paiementRepository.save(paiement);
-        transactionCagnotteService.createContributionTransaction(savedPaiement);
-        syncPaymentMonths(savedPaiement);
-        paymentStatusService.refreshPaymentStatus(savedPaiement.getUtilisateur());
+        if (savedPaiement.getTypePaiement() == TypePaiement.CAGNOTTE) {
+            transactionCagnotteService.createContributionTransaction(savedPaiement);
+            syncPaymentMonths(savedPaiement);
+            paymentStatusService.refreshPaymentStatus(savedPaiement.getUtilisateur());
+        }
         return savedPaiement;
     }
 
@@ -162,7 +219,9 @@ public class PaiementService {
     @Transactional(readOnly = true)
     public List<Paiement> getPaiementsByUtilisateur(final Long userId, final AuthenticatedUser authenticatedUser) {
         User user = residenceAccessService.getUserForRead(userId, authenticatedUser);
-        return paiementRepository.findAllByUtilisateur_IdOrderByDatePaiementDesc(user.getId());
+        return paiementRepository.findAllByUtilisateur_IdOrderByDatePaiementDesc(user.getId()).stream()
+                .filter(paiement -> paiement.getTypePaiement() == TypePaiement.CAGNOTTE)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -183,7 +242,14 @@ public class PaiementService {
     @Transactional(readOnly = true)
     public List<Paiement> getPaiementsByResidence(final Long residenceId, final AuthenticatedUser authenticatedUser) {
         residenceAccessService.getResidenceForAdmin(residenceId, authenticatedUser);
-        return paiementRepository.findAllByResidence_IdOrderByDatePaiementDesc(residenceId);
+        return paiementRepository.findAllByResidence_IdAndTypePaiementOrderByDatePaiementDesc(residenceId, TypePaiement.CAGNOTTE);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Paiement> getPaiementsByDepense(final Long depenseId, final AuthenticatedUser authenticatedUser) {
+        Depense depense = requireSharedDepense(depenseId);
+        residenceAccessService.ensureMemberAccessToResidence(authenticatedUser, depense.getResidence().getId());
+        return paiementRepository.findAllByDepense_IdOrderByDatePaiementDesc(depenseId);
     }
 
     @Transactional(readOnly = true)
@@ -199,9 +265,10 @@ public class PaiementService {
         }
 
         residenceAccessService.getResidenceForAdmin(authenticatedUser.residenceId(), authenticatedUser);
-        return paiementRepository.findAllByResidence_IdAndStatusOrderByDatePaiementDesc(
+        return paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
                 authenticatedUser.residenceId(),
-                PaiementStatus.PENDING
+                PaiementStatus.PENDING,
+                TypePaiement.CAGNOTTE
         );
     }
 
@@ -301,10 +368,18 @@ public class PaiementService {
         }
 
         Paiement lastValidatedPaiement = paiementRepository
-                .findFirstByUtilisateur_IdAndStatusOrderByDateFinDescDatePaiementDesc(user.getId(), PaiementStatus.VALIDATED)
+                .findFirstByUtilisateur_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+                        user.getId(),
+                        PaiementStatus.VALIDATED,
+                        TypePaiement.CAGNOTTE
+                )
                 .orElse(null);
         Paiement pendingPaiement = paiementRepository
-                .findFirstByUtilisateur_IdAndStatusOrderByDatePaiementDesc(user.getId(), PaiementStatus.PENDING)
+                .findFirstByUtilisateur_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+                        user.getId(),
+                        PaiementStatus.PENDING,
+                        TypePaiement.CAGNOTTE
+                )
                 .orElse(null);
 
         LocalDate dateFin = lastValidatedPaiement == null ? null : lastValidatedPaiement.getDateFin();
@@ -326,6 +401,7 @@ public class PaiementService {
                 months,
                 paiementRepository.findAllByUtilisateur_IdAndStatusOrderByDatePaiementDesc(user.getId(), PaiementStatus.VALIDATED)
                         .stream()
+                        .filter(paiement -> paiement.getTypePaiement() == TypePaiement.CAGNOTTE)
                         .map(this::toHistoryItem)
                         .toList()
         );
@@ -352,7 +428,7 @@ public class PaiementService {
     }
 
     private void syncPaymentMonths(final Paiement paiement) {
-        if (paymentMonthRepository == null) {
+        if (paymentMonthRepository == null || paiement.getTypePaiement() != TypePaiement.CAGNOTTE) {
             return;
         }
 
@@ -432,9 +508,34 @@ public class PaiementService {
         validateCreateRequest(delegatedRequest);
     }
 
+    private void validateCreateDepensePartageRequest(final CreateDepensePartagePaiementRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Create depense partage paiement request must not be null");
+        }
+        if (request.getMontant() == null || request.getMontant().signum() <= 0) {
+            throw new IllegalArgumentException("Montant must be greater than zero");
+        }
+    }
+
+    private void validateCreateAdminDepensePartageRequest(final CreateAdminDepensePartagePaiementRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Create admin depense partage paiement request must not be null");
+        }
+        if (request.getUtilisateurId() == null) {
+            throw new IllegalArgumentException("User ID must not be null");
+        }
+        if (request.getMontant() == null || request.getMontant().signum() <= 0) {
+            throw new IllegalArgumentException("Montant must be greater than zero");
+        }
+    }
+
     private ResidenceImpayeResponse toResidenceImpayeResponse(final User user, final LocalDate today) {
         Paiement lastPayment = paiementRepository
-                .findFirstByUtilisateur_IdAndStatusOrderByDateFinDescDatePaiementDesc(user.getId(), PaiementStatus.VALIDATED)
+                .findFirstByUtilisateur_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+                        user.getId(),
+                        PaiementStatus.VALIDATED,
+                        TypePaiement.CAGNOTTE
+                )
                 .orElse(null);
         LocalDate dateFinDernierPaiement = lastPayment == null ? null : lastPayment.getDateFin();
         Long nombreJoursRetard = dateFinDernierPaiement == null ? null : ChronoUnit.DAYS.between(dateFinDernierPaiement, today);
@@ -455,7 +556,7 @@ public class PaiementService {
         return date == null ? null : YearMonth.from(date).format(MONTH_FORMATTER);
     }
 
-    private Paiement createPaiementForUser(
+    private Paiement createCagnottePaiementForUser(
             final User utilisateur,
             final Residence residence,
             final Integer nombreMois,
@@ -465,7 +566,11 @@ public class PaiementService {
         if (!residence.getId().equals(utilisateur.getResidenceId())) {
             throw new IllegalArgumentException("User does not belong to the selected residence");
         }
-        if (paiementRepository.existsByUtilisateur_IdAndStatus(utilisateur.getId(), PaiementStatus.PENDING)) {
+        if (paiementRepository.existsByUtilisateur_IdAndStatusAndTypePaiement(
+                utilisateur.getId(),
+                PaiementStatus.PENDING,
+                TypePaiement.CAGNOTTE
+        )) {
             throw new IllegalStateException("User already has a pending paiement");
         }
 
@@ -482,8 +587,75 @@ public class PaiementService {
         paiement.setDatePaiement(LocalDateTime.now());
         paiement.setCreePar(residenceAccessService.getRequiredActor(authenticatedUser));
         paiement.setStatus(PaiementStatus.PENDING);
+        paiement.setTypePaiement(TypePaiement.CAGNOTTE);
+        paiement.setDepense(null);
 
         return paiementRepository.save(paiement);
+    }
+
+    private Paiement createDepensePartagePaiement(
+            final Long depenseId,
+            final User utilisateur,
+            final BigDecimal montant,
+            final AuthenticatedUser authenticatedUser,
+            final boolean autoValidate
+    ) {
+        Depense depense = requireSharedDepense(depenseId);
+        validateSharedPaymentUser(utilisateur, depense);
+        ensureNoPendingSharedPayment(utilisateur.getId(), depense.getId());
+
+        Paiement paiement = new Paiement();
+        paiement.setUtilisateur(utilisateur);
+        paiement.setResidence(depense.getResidence());
+        paiement.setNombreMois(null);
+        paiement.setMontantMensuel(montant);
+        paiement.setMontantTotal(montant);
+        paiement.setDateDebut(depense.getDateCreation() == null ? LocalDate.now() : depense.getDateCreation().toLocalDate());
+        paiement.setDateFin(paiement.getDateDebut());
+        paiement.setDatePaiement(LocalDateTime.now());
+        paiement.setCreePar(residenceAccessService.getRequiredActor(authenticatedUser));
+        paiement.setStatus(autoValidate ? PaiementStatus.VALIDATED : PaiementStatus.PENDING);
+        paiement.setTypePaiement(TypePaiement.DEPENSE_PARTAGE);
+        paiement.setDepense(depense);
+
+        return paiementRepository.save(paiement);
+    }
+
+    private Depense requireSharedDepense(final Long depenseId) {
+        if (depenseService == null) {
+            throw new IllegalStateException("Depense service is not configured");
+        }
+        Depense depense = depenseService.getRequiredDepense(depenseId);
+        if (depense.getTypeDepense() != TypeDepense.PARTAGE) {
+            throw new IllegalStateException("Depense must be of type PARTAGE");
+        }
+        if (depense.getStatut() != StatutDepense.APPROUVEE) {
+            throw new IllegalStateException("Depense must be approved before receiving payments");
+        }
+        return depense;
+    }
+
+    private void validateSharedPaymentUser(final User utilisateur, final Depense depense) {
+        if (utilisateur.getResidenceId() == null || !utilisateur.getResidenceId().equals(depense.getResidence().getId())) {
+            throw new IllegalArgumentException("User does not belong to the expense residence");
+        }
+        if (utilisateur.getStatus() != UserStatus.ACTIVE) {
+            throw new IllegalStateException("Only active users can pay a shared expense");
+        }
+        if (utilisateur.getRole() != UserRole.ADMIN && utilisateur.getRole() != UserRole.USER) {
+            throw new IllegalStateException("Only residence members can pay a shared expense");
+        }
+    }
+
+    private void ensureNoPendingSharedPayment(final Long userId, final Long depenseId) {
+        if (paiementRepository.existsByUtilisateur_IdAndStatusAndTypePaiementAndDepense_Id(
+                userId,
+                PaiementStatus.PENDING,
+                TypePaiement.DEPENSE_PARTAGE,
+                depenseId
+        )) {
+            throw new IllegalStateException("User already has a pending payment for this expense");
+        }
     }
 
     private void ensureNoPaidMonthOverlap(final Long userId, final LocalDate dateDebut, final Integer nombreMois) {

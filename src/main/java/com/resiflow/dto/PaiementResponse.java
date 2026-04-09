@@ -3,6 +3,7 @@ package com.resiflow.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
+import com.resiflow.entity.TypePaiement;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +24,8 @@ public class PaiementResponse {
     private final LocalDateTime datePaiement;
     private final Long creeParId;
     private final PaiementStatus status;
+    private final TypePaiement typePaiement;
+    private final Long depenseId;
 
     public PaiementResponse(
             final Long id,
@@ -36,7 +39,9 @@ public class PaiementResponse {
             final LocalDate dateFin,
             final LocalDateTime datePaiement,
             final Long creeParId,
-            final PaiementStatus status
+            final PaiementStatus status,
+            final TypePaiement typePaiement,
+            final Long depenseId
     ) {
         this.id = id;
         this.utilisateurId = utilisateurId;
@@ -50,6 +55,8 @@ public class PaiementResponse {
         this.datePaiement = datePaiement;
         this.creeParId = creeParId;
         this.status = status;
+        this.typePaiement = typePaiement;
+        this.depenseId = depenseId;
     }
 
     public static PaiementResponse fromEntity(final Paiement paiement) {
@@ -65,7 +72,9 @@ public class PaiementResponse {
                 paiement.getDateFin(),
                 paiement.getDatePaiement(),
                 paiement.getCreePar().getId(),
-                paiement.getStatus()
+                paiement.getStatus(),
+                paiement.getTypePaiement(),
+                paiement.getDepense() == null ? null : paiement.getDepense().getId()
         );
     }
 
@@ -115,5 +124,13 @@ public class PaiementResponse {
 
     public PaiementStatus getStatus() {
         return status;
+    }
+
+    public TypePaiement getTypePaiement() {
+        return typePaiement;
+    }
+
+    public Long getDepenseId() {
+        return depenseId;
     }
 }

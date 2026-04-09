@@ -5,6 +5,7 @@ import com.resiflow.dto.ResidenceImpayeResponse;
 import com.resiflow.dto.StatsResponse;
 import com.resiflow.security.AuthenticatedUser;
 import com.resiflow.service.DashboardService;
+import com.resiflow.service.DepenseService;
 import com.resiflow.service.PaiementService;
 import com.resiflow.service.ResidenceService;
 import com.resiflow.service.StatsService;
@@ -52,9 +53,15 @@ class ResidenceControllerTest {
                 return new StatsResponse(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of(), List.of());
             }
         };
+        DepenseService depenseService = new DepenseService(null, null, null, null) {
+            @Override
+            public Long countActiveParticipants(final Long residenceId, final AuthenticatedUser authenticatedUser) {
+                return 3L;
+            }
+        };
 
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        new ResidenceController(residenceService, dashboardService, paiementService, statsService)
+                        new ResidenceController(residenceService, dashboardService, paiementService, statsService, depenseService)
                 )
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();

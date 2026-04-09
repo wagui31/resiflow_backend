@@ -30,6 +30,13 @@ public class Depense {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal montant;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_depense", nullable = false)
+    private TypeDepense typeDepense;
+
+    @Column(name = "montant_par_personne", precision = 12, scale = 2)
+    private BigDecimal montantParPersonne;
+
     @Column(nullable = false)
     private String description;
 
@@ -77,6 +84,22 @@ public class Depense {
 
     public void setMontant(final BigDecimal montant) {
         this.montant = montant;
+    }
+
+    public TypeDepense getTypeDepense() {
+        return typeDepense;
+    }
+
+    public void setTypeDepense(final TypeDepense typeDepense) {
+        this.typeDepense = typeDepense;
+    }
+
+    public BigDecimal getMontantParPersonne() {
+        return montantParPersonne;
+    }
+
+    public void setMontantParPersonne(final BigDecimal montantParPersonne) {
+        this.montantParPersonne = montantParPersonne;
     }
 
     public String getDescription() {

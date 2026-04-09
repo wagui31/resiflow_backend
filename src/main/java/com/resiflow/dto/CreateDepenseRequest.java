@@ -1,5 +1,6 @@
 package com.resiflow.dto;
 
+import com.resiflow.entity.TypeDepense;
 import java.math.BigDecimal;
 
 public class CreateDepenseRequest {
@@ -7,6 +8,8 @@ public class CreateDepenseRequest {
     private Long residenceId;
     private Long categorieId;
     private BigDecimal montant;
+    private TypeDepense typeDepense;
+    private BigDecimal montantParPersonne;
     private String description;
 
     public Long getResidenceId() {
@@ -31,6 +34,22 @@ public class CreateDepenseRequest {
 
     public void setMontant(final BigDecimal montant) {
         this.montant = montant;
+    }
+
+    public TypeDepense getTypeDepense() {
+        return typeDepense;
+    }
+
+    public void setTypeDepense(final TypeDepense typeDepense) {
+        this.typeDepense = typeDepense;
+    }
+
+    public BigDecimal getMontantParPersonne() {
+        return montantParPersonne;
+    }
+
+    public void setMontantParPersonne(final BigDecimal montantParPersonne) {
+        this.montantParPersonne = montantParPersonne;
     }
 
     public String getDescription() {

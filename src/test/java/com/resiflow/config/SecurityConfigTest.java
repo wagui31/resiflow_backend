@@ -17,6 +17,7 @@ import com.resiflow.security.JwtService;
 import com.resiflow.security.RestAuthenticationEntryPoint;
 import com.resiflow.service.AuthService;
 import com.resiflow.service.DashboardService;
+import com.resiflow.service.DepenseService;
 import com.resiflow.service.PaiementService;
 import com.resiflow.service.StatsService;
 import com.resiflow.service.UserService;
@@ -87,6 +88,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private StatsService statsService;
+
+    @MockitoBean
+    private DepenseService depenseService;
 
     @Test
     void healthEndpointIsPublic() throws Exception {

@@ -32,7 +32,7 @@ public class Paiement {
     @JoinColumn(name = "residence_id", nullable = false)
     private Residence residence;
 
-    @Column(name = "nombre_mois", nullable = false)
+    @Column(name = "nombre_mois")
     private Integer nombreMois;
 
     @Column(name = "montant_mensuel", nullable = false, precision = 12, scale = 2)
@@ -49,6 +49,14 @@ public class Paiement {
 
     @Column(name = "date_paiement", nullable = false)
     private LocalDateTime datePaiement;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_paiement", nullable = false)
+    private TypePaiement typePaiement;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "depense_id")
+    private Depense depense;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "cree_par", nullable = false)
@@ -130,6 +138,22 @@ public class Paiement {
         this.datePaiement = datePaiement;
     }
 
+    public TypePaiement getTypePaiement() {
+        return typePaiement;
+    }
+
+    public void setTypePaiement(final TypePaiement typePaiement) {
+        this.typePaiement = typePaiement;
+    }
+
+    public Depense getDepense() {
+        return depense;
+    }
+
+    public void setDepense(final Depense depense) {
+        this.depense = depense;
+    }
+
     public User getCreePar() {
         return creePar;
     }
@@ -153,6 +177,9 @@ public class Paiement {
         }
         if (status == null) {
             status = PaiementStatus.PENDING;
+        }
+        if (typePaiement == null) {
+            typePaiement = TypePaiement.CAGNOTTE;
         }
     }
 }

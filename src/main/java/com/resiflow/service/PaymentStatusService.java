@@ -5,6 +5,7 @@ import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.PaymentMonth;
 import com.resiflow.entity.PaymentMonthStatus;
 import com.resiflow.entity.StatutPaiement;
+import com.resiflow.entity.TypePaiement;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.repository.PaiementRepository;
@@ -91,8 +92,12 @@ public class PaymentStatusService {
         Paiement lastPayment = paiementRepository.findFirstByUtilisateur_IdAndStatusOrderByDateFinDescDatePaiementDesc(
                         user.getId(),
                         PaiementStatus.VALIDATED
-                )
-                .orElse(null);
+                ).filter(paiement -> paiement.getTypePaiement() == TypePaiement.CAGNOTTE)
+                .orElseGet(() -> paiementRepository.findFirstByUtilisateur_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+                        user.getId(),
+                        PaiementStatus.VALIDATED,
+                        TypePaiement.CAGNOTTE
+                ).orElse(null));
         if (lastPayment == null) {
             return StatutPaiement.EN_RETARD;
         }

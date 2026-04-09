@@ -2,6 +2,7 @@ package com.resiflow.dto;
 
 import com.resiflow.entity.Depense;
 import com.resiflow.entity.StatutDepense;
+import com.resiflow.entity.TypeDepense;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -12,6 +13,8 @@ public class DepenseResponse {
     private final Long categorieId;
     private final String categorieNom;
     private final BigDecimal montant;
+    private final TypeDepense typeDepense;
+    private final BigDecimal montantParPersonne;
     private final String description;
     private final StatutDepense statut;
     private final Long creeParId;
@@ -25,6 +28,8 @@ public class DepenseResponse {
             final Long categorieId,
             final String categorieNom,
             final BigDecimal montant,
+            final TypeDepense typeDepense,
+            final BigDecimal montantParPersonne,
             final String description,
             final StatutDepense statut,
             final Long creeParId,
@@ -37,6 +42,8 @@ public class DepenseResponse {
         this.categorieId = categorieId;
         this.categorieNom = categorieNom;
         this.montant = montant;
+        this.typeDepense = typeDepense;
+        this.montantParPersonne = montantParPersonne;
         this.description = description;
         this.statut = statut;
         this.creeParId = creeParId;
@@ -52,6 +59,8 @@ public class DepenseResponse {
                 depense.getCategorie() == null ? null : depense.getCategorie().getId(),
                 depense.getCategorie() == null ? null : depense.getCategorie().getNom(),
                 depense.getMontant(),
+                depense.getTypeDepense(),
+                depense.getMontantParPersonne(),
                 depense.getDescription(),
                 depense.getStatut(),
                 depense.getCreePar().getId(),
@@ -79,6 +88,14 @@ public class DepenseResponse {
 
     public BigDecimal getMontant() {
         return montant;
+    }
+
+    public TypeDepense getTypeDepense() {
+        return typeDepense;
+    }
+
+    public BigDecimal getMontantParPersonne() {
+        return montantParPersonne;
     }
 
     public String getDescription() {

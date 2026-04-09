@@ -7,6 +7,7 @@ import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.TransactionCagnotte;
 import com.resiflow.entity.TypeTransactionCagnotte;
+import com.resiflow.entity.TypePaiement;
 import com.resiflow.repository.PaiementRepository;
 import com.resiflow.repository.TransactionCagnotteRepository;
 import com.resiflow.security.AuthenticatedUser;
@@ -45,7 +46,11 @@ public class StatsService {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
 
         List<Paiement> paiements =
-                paiementRepository.findAllByResidence_IdAndStatusOrderByDatePaiementDesc(residenceId, PaiementStatus.VALIDATED);
+                paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+                        residenceId,
+                        PaiementStatus.VALIDATED,
+                        TypePaiement.CAGNOTTE
+                );
         List<TransactionCagnotte> transactions =
                 transactionCagnotteRepository.findAllByResidence_IdOrderByDateCreationDesc(residenceId);
 

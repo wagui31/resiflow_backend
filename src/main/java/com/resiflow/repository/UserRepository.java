@@ -23,11 +23,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findAllByResidence_IdAndStatus(Long residenceId, UserStatus status);
 
+    List<User> findAllByResidence_IdAndStatusAndRoleIn(Long residenceId, UserStatus status, List<UserRole> roles);
+
     List<User> findAllByStatus(UserStatus status);
 
     List<User> findAllByResidence_IdAndRole(Long residenceId, UserRole role);
 
     long countByResidence_IdAndRole(Long residenceId, UserRole role);
+
+    long countByResidence_IdAndStatusAndRoleIn(Long residenceId, UserStatus status, List<UserRole> roles);
 
     Optional<User> findByIdAndResidence_Id(Long id, Long residenceId);
 

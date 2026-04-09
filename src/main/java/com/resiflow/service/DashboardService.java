@@ -3,6 +3,7 @@ package com.resiflow.service;
 import com.resiflow.dto.DashboardResponse;
 import com.resiflow.dto.VoteResponse;
 import com.resiflow.entity.Depense;
+import com.resiflow.entity.TypeDepense;
 import com.resiflow.repository.UserRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
@@ -62,6 +63,7 @@ public class DashboardService {
         LocalDateTime startOfMonth = firstDayOfMonth.atStartOfDay();
         return depenses.stream()
                 .filter(depense -> depense.getDateCreation() != null)
+                .filter(depense -> depense.getTypeDepense() == TypeDepense.CAGNOTTE)
                 .filter(depense -> !depense.getDateCreation().isBefore(startOfMonth))
                 .map(Depense::getMontant)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
