@@ -76,6 +76,19 @@ public class DepenseController {
                 .toList());
     }
 
+    @GetMapping("/residence/{residenceId}/cagnotte/approuvees")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<DepenseResponse>> getApprovedCagnotteDepensesByResidence(
+            @PathVariable final Long residenceId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(depenseService.getApprovedCagnotteDepensesByResidence(residenceId, authenticatedUser)
+                .stream()
+                .map(DepenseResponse::fromEntity)
+                .toList());
+    }
+
     @GetMapping("/{id}/contributions")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<DepenseContributionUserResponse>> getDepenseContributions(

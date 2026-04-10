@@ -4,6 +4,10 @@ ALTER TABLE paiements
 ALTER TABLE paiements
     DROP CONSTRAINT chk_paiements_nombre_mois;
 
+UPDATE paiements
+SET nombre_mois = NULL
+WHERE type_paiement = 'DEPENSE_PARTAGE';
+
 ALTER TABLE paiements
     ADD CONSTRAINT chk_paiements_nombre_mois
         CHECK (

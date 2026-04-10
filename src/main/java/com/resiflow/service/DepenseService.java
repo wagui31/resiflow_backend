@@ -132,6 +132,19 @@ public class DepenseService {
     }
 
     @Transactional(readOnly = true)
+    public List<Depense> getApprovedCagnotteDepensesByResidence(
+            final Long residenceId,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
+        return depenseRepository.findAllByResidence_IdAndTypeDepenseAndStatutOrderByDateCreationDesc(
+                residenceId,
+                TypeDepense.CAGNOTTE,
+                StatutDepense.APPROUVEE
+        );
+    }
+
+    @Transactional(readOnly = true)
     public Long countActiveParticipants(final Long residenceId, final AuthenticatedUser authenticatedUser) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
         return userRepository.countByResidence_IdAndStatusAndRoleIn(
