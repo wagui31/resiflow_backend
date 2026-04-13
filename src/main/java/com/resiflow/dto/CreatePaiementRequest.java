@@ -4,17 +4,17 @@ import java.time.LocalDate;
 
 public class CreatePaiementRequest {
 
-    private Long utilisateurId;
+    private Long logementId;
     private Long residenceId;
     private Integer nombreMois;
     private LocalDate dateDebut;
 
-    public Long getUtilisateurId() {
-        return utilisateurId;
+    public Long getLogementId() {
+        return logementId;
     }
 
-    public void setUtilisateurId(final Long utilisateurId) {
-        this.utilisateurId = utilisateurId;
+    public void setLogementId(final Long logementId) {
+        this.logementId = logementId;
     }
 
     public Long getResidenceId() {

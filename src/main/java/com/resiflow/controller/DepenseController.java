@@ -3,9 +3,10 @@ package com.resiflow.controller;
 import com.resiflow.dto.CreateDepenseRequest;
 import com.resiflow.dto.CreateAdminDepensePartagePaiementRequest;
 import com.resiflow.dto.CreateDepensePartagePaiementRequest;
-import com.resiflow.dto.DepenseContributionUserResponse;
+import com.resiflow.dto.DepenseContributionLogementResponse;
 import com.resiflow.dto.DepenseResponse;
 import com.resiflow.dto.PaiementResponse;
+import com.resiflow.dto.SharedExpenseSummaryResponse;
 import com.resiflow.security.AuthenticatedUser;
 import com.resiflow.service.DepenseService;
 import com.resiflow.service.PaiementService;
@@ -89,9 +90,19 @@ public class DepenseController {
                 .toList());
     }
 
+    @GetMapping("/residence/{residenceId}/partagees/approuvees")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<SharedExpenseSummaryResponse>> getApprovedSharedDepensesByResidence(
+            @PathVariable final Long residenceId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(depenseService.getApprovedSharedDepenseSummariesByResidence(residenceId, authenticatedUser));
+    }
+
     @GetMapping("/{id}/contributions")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<DepenseContributionUserResponse>> getDepenseContributions(
+    public ResponseEntity<List<DepenseContributionLogementResponse>> getDepenseContributions(
             @PathVariable final Long id,
             final Authentication authentication
     ) {

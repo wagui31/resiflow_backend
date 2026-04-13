@@ -4,15 +4,15 @@ import java.math.BigDecimal;
 
 public class CreateAdminDepensePartagePaiementRequest {
 
-    private Long utilisateurId;
+    private Long logementId;
     private BigDecimal montant;
 
-    public Long getUtilisateurId() {
-        return utilisateurId;
+    public Long getLogementId() {
+        return logementId;
     }
 
-    public void setUtilisateurId(final Long utilisateurId) {
-        this.utilisateurId = utilisateurId;
+    public void setLogementId(final Long logementId) {
+        this.logementId = logementId;
     }
 
     public BigDecimal getMontant() {

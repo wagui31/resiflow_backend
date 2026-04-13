@@ -4,22 +4,22 @@ import java.math.BigDecimal;
 
 public class TopPayeurResponse {
 
-    private final Long userId;
-    private final String email;
+    private final Long logementId;
+    private final String label;
     private final BigDecimal totalPaye;
 
-    public TopPayeurResponse(final Long userId, final String email, final BigDecimal totalPaye) {
-        this.userId = userId;
-        this.email = email;
+    public TopPayeurResponse(final Long logementId, final String label, final BigDecimal totalPaye) {
+        this.logementId = logementId;
+        this.label = label;
         this.totalPaye = totalPaye;
     }
 
-    public Long getUserId() {
-        return userId;
+    public Long getLogementId() {
+        return logementId;
     }
 
-    public String getEmail() {
-        return email;
+    public String getLabel() {
+        return label;
     }
 
     public BigDecimal getTotalPaye() {

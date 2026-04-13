@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PaymentMonthRepository extends JpaRepository<PaymentMonth, Long> {
 
-    List<PaymentMonth> findAllByUser_IdOrderByMonthAsc(Long userId);
+    List<PaymentMonth> findAllByLogement_IdOrderByMonthAsc(Long logementId);
 
-    Optional<PaymentMonth> findByUser_IdAndMonth(Long userId, String month);
+    Optional<PaymentMonth> findByLogement_IdAndMonth(Long logementId, String month);
 }

@@ -19,6 +19,7 @@ import com.resiflow.service.AuthService;
 import com.resiflow.service.DashboardService;
 import com.resiflow.service.DepenseService;
 import com.resiflow.service.PaiementService;
+import com.resiflow.service.ResidenceViewService;
 import com.resiflow.service.StatsService;
 import com.resiflow.service.UserService;
 import org.junit.jupiter.api.Test;
@@ -91,6 +92,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private DepenseService depenseService;
+
+    @MockitoBean
+    private ResidenceViewService residenceViewService;
 
     @Test
     void healthEndpointIsPublic() throws Exception {

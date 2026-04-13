@@ -2,10 +2,11 @@ package com.resiflow.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resiflow.dto.CreateAdminRequest;
+import com.resiflow.entity.Logement;
 import com.resiflow.dto.UserPaiementHistoryResponse;
 import com.resiflow.entity.PaiementStatus;
-import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.Residence;
+import com.resiflow.entity.TypeLogement;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
@@ -38,7 +39,7 @@ class UserControllerTest {
 
     @BeforeEach
     void setUp() {
-        UserService userService = new UserService(null, new BCryptPasswordEncoder(), null, null) {
+        UserService userService = new UserService(null, new BCryptPasswordEncoder(), null, null, null, null) {
             @Override
             public User createAdmin(final CreateAdminRequest request) {
                 if (request == null || request.getEmail() == null || request.getEmail().trim().isEmpty()) {
@@ -50,6 +51,7 @@ class UserControllerTest {
                 user.setEmail(request.getEmail().trim());
                 user.setPassword(request.getPassword().trim());
                 user.setResidenceId(request.getResidenceId());
+                user.setLogementId(request.getLogementId());
                 user.setRole(UserRole.ADMIN);
                 user.setStatus(UserStatus.ACTIVE);
                 LocalDateTime now = LocalDateTime.now();
@@ -68,11 +70,15 @@ class UserControllerTest {
                 user.setId(authenticatedUser.userId());
                 user.setEmail(authenticatedUser.email());
                 user.setResidence(residence);
+                Logement logement = new Logement();
+                logement.setId(22L);
+                logement.setNumero("12A");
+                logement.setImmeuble("B");
+                logement.setTypeLogement(TypeLogement.APPARTEMENT);
+                logement.setActive(Boolean.TRUE);
+                user.setLogement(logement);
                 user.setRole(authenticatedUser.role());
                 user.setStatus(UserStatus.ACTIVE);
-                user.setStatutPaiement(StatutPaiement.A_JOUR);
-                user.setNumeroImmeuble("B");
-                user.setCodeLogement("12A");
                 user.setDateEntreeResidence(LocalDate.of(2026, 1, 15));
                 LocalDateTime now = LocalDateTime.now();
                 user.setCreatedAt(now);
@@ -81,7 +87,7 @@ class UserControllerTest {
             }
         };
 
-        PaiementService paiementService = new PaiementService(null, null, null, null, null) {
+        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null) {
             @Override
             public List<UserPaiementHistoryResponse> getPaiementHistoryByUtilisateur(
                     final Long userId,
@@ -115,6 +121,7 @@ class UserControllerTest {
         request.setEmail("admin@example.com");
         request.setPassword("secret");
         request.setResidenceId(7L);
+        request.setLogementId(22L);
 
         mockMvc.perform(post("/api/users/admin")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -135,6 +142,7 @@ class UserControllerTest {
         request.setEmail(" ");
         request.setPassword("secret");
         request.setResidenceId(7L);
+        request.setLogementId(22L);
 
         mockMvc.perform(post("/api/users/admin")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -159,9 +167,11 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.currency").value("EUR"))
                 .andExpect(jsonPath("$.role").value("USER"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.statutPaiement").value("A_JOUR"))
-                .andExpect(jsonPath("$.numeroImmeuble").value("B"))
-                .andExpect(jsonPath("$.codeLogement").value("12A"))
+                .andExpect(jsonPath("$.logement.logementId").value(22L))
+                .andExpect(jsonPath("$.logement.numero").value("12A"))
+                .andExpect(jsonPath("$.logement.immeuble").value("B"))
+                .andExpect(jsonPath("$.logement.typeLogement").value("APPARTEMENT"))
+                .andExpect(jsonPath("$.logement.active").value(true))
                 .andExpect(jsonPath("$.dateEntreeResidence").value("2026-01-15"));
     }
 

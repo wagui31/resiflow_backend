@@ -48,15 +48,9 @@ public class User {
     @Column(nullable = false)
     private UserStatus status;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "statut_paiement", nullable = false)
-    private StatutPaiement statutPaiement;
-
-    @Column(name = "numero_immeuble")
-    private String numeroImmeuble;
-
-    @Column(name = "code_logement")
-    private String codeLogement;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "logement_id")
+    private Logement logement;
 
     @Column(name = "date_entree_residence", nullable = false)
     private java.time.LocalDate dateEntreeResidence;
@@ -146,28 +140,26 @@ public class User {
         this.status = status;
     }
 
-    public StatutPaiement getStatutPaiement() {
-        return statutPaiement;
+    public Logement getLogement() {
+        return logement;
     }
 
-    public void setStatutPaiement(final StatutPaiement statutPaiement) {
-        this.statutPaiement = statutPaiement;
+    public void setLogement(final Logement logement) {
+        this.logement = logement;
     }
 
-    public String getNumeroImmeuble() {
-        return numeroImmeuble;
+    public Long getLogementId() {
+        return logement == null ? null : logement.getId();
     }
 
-    public void setNumeroImmeuble(final String numeroImmeuble) {
-        this.numeroImmeuble = numeroImmeuble;
-    }
-
-    public String getCodeLogement() {
-        return codeLogement;
-    }
-
-    public void setCodeLogement(final String codeLogement) {
-        this.codeLogement = codeLogement;
+    public void setLogementId(final Long logementId) {
+        if (logementId == null) {
+            this.logement = null;
+            return;
+        }
+        Logement logementReference = new Logement();
+        logementReference.setId(logementId);
+        this.logement = logementReference;
     }
 
     public java.time.LocalDate getDateEntreeResidence() {
@@ -196,6 +188,7 @@ public class User {
 
     @PrePersist
     public void prePersist() {
+        validateRoleAssignments();
         LocalDateTime now = LocalDateTime.now();
         if (createdAt == null) {
             createdAt = now;
@@ -210,6 +203,22 @@ public class User {
 
     @PreUpdate
     public void preUpdate() {
+        validateRoleAssignments();
         updatedAt = LocalDateTime.now();
+    }
+
+    private void validateRoleAssignments() {
+        if (role == null) {
+            return;
+        }
+        if (role == UserRole.SUPER_ADMIN) {
+            return;
+        }
+        if (residence == null) {
+            throw new IllegalStateException("Residence is required for non-super-admin users");
+        }
+        if (logement == null) {
+            throw new IllegalStateException("Logement is required for non-super-admin users");
+        }
     }
 }

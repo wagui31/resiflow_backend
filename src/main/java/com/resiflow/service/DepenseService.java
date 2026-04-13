@@ -1,9 +1,14 @@
 package com.resiflow.service;
 
 import com.resiflow.dto.CreateDepenseRequest;
-import com.resiflow.dto.DepenseContributionUserResponse;
+import com.resiflow.dto.DepenseContributionLogementResponse;
+import com.resiflow.dto.ExpenseUserSummaryResponse;
+import com.resiflow.dto.LogementSummaryResponse;
+import com.resiflow.dto.SharedExpenseParticipantResponse;
+import com.resiflow.dto.SharedExpenseSummaryResponse;
 import com.resiflow.entity.CategorieDepense;
 import com.resiflow.entity.Depense;
+import com.resiflow.entity.Logement;
 import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.StatutDepense;
@@ -14,6 +19,7 @@ import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
 import com.resiflow.entity.Vote;
 import com.resiflow.repository.DepenseRepository;
+import com.resiflow.repository.LogementRepository;
 import com.resiflow.repository.PaiementRepository;
 import com.resiflow.repository.UserRepository;
 import com.resiflow.security.AuthenticatedUser;
@@ -37,6 +43,7 @@ public class DepenseService {
     private final TransactionCagnotteService transactionCagnotteService;
     private final UserRepository userRepository;
     private final PaiementRepository paiementRepository;
+    private final LogementRepository logementRepository;
 
     @Autowired
     public DepenseService(
@@ -45,7 +52,8 @@ public class DepenseService {
             final ResidenceAccessService residenceAccessService,
             final TransactionCagnotteService transactionCagnotteService,
             final UserRepository userRepository,
-            final PaiementRepository paiementRepository
+            final PaiementRepository paiementRepository,
+            final LogementRepository logementRepository
     ) {
         this.depenseRepository = depenseRepository;
         this.categorieDepenseService = categorieDepenseService;
@@ -53,6 +61,7 @@ public class DepenseService {
         this.transactionCagnotteService = transactionCagnotteService;
         this.userRepository = userRepository;
         this.paiementRepository = paiementRepository;
+        this.logementRepository = logementRepository;
     }
 
     public DepenseService(
@@ -66,6 +75,7 @@ public class DepenseService {
                 categorieDepenseService,
                 residenceAccessService,
                 transactionCagnotteService,
+                null,
                 null,
                 null
         );
@@ -145,17 +155,29 @@ public class DepenseService {
     }
 
     @Transactional(readOnly = true)
-    public Long countActiveParticipants(final Long residenceId, final AuthenticatedUser authenticatedUser) {
+    public List<SharedExpenseSummaryResponse> getApprovedSharedDepenseSummariesByResidence(
+            final Long residenceId,
+            final AuthenticatedUser authenticatedUser
+    ) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
-        return userRepository.countByResidence_IdAndStatusAndRoleIn(
-                residenceId,
-                UserStatus.ACTIVE,
-                List.of(UserRole.ADMIN, UserRole.USER)
-        );
+        List<Logement> participantLogements = getActiveParticipantLogements(residenceId);
+        return depenseRepository.findAllByResidence_IdAndTypeDepenseAndStatutOrderByDateCreationDesc(
+                        residenceId,
+                        TypeDepense.PARTAGE,
+                        StatutDepense.APPROUVEE
+                ).stream()
+                .map(depense -> toSharedExpenseSummary(depense, participantLogements))
+                .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<DepenseContributionUserResponse> getDepenseContributions(
+    public Long countActiveParticipants(final Long residenceId, final AuthenticatedUser authenticatedUser) {
+        residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
+        return logementRepository.countByResidence_IdAndActiveTrue(residenceId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DepenseContributionLogementResponse> getDepenseContributions(
             final Long depenseId,
             final AuthenticatedUser authenticatedUser
     ) {
@@ -165,20 +187,17 @@ public class DepenseService {
             throw new IllegalStateException("Contributions are only available for shared expenses");
         }
 
-        List<User> participants = userRepository.findAllByResidence_IdAndStatusAndRoleIn(
-                depense.getResidence().getId(),
-                UserStatus.ACTIVE,
-                List.of(UserRole.ADMIN, UserRole.USER)
-        );
-        Map<Long, BigDecimal> paidByUser = getPaidAmountsByUser(depense.getId());
+        List<Logement> participants = getActiveParticipantLogements(depense.getResidence().getId());
+        Map<Long, BigDecimal> paidByLogement = getPaidAmountsByLogement(depense.getId());
         BigDecimal montantDu = depense.getMontantParPersonne();
 
         return participants.stream()
-                .map(user -> {
-                    BigDecimal montantPaye = paidByUser.getOrDefault(user.getId(), BigDecimal.ZERO);
-                    return new DepenseContributionUserResponse(
-                            user.getId(),
-                            user.getEmail(),
+                .map(logement -> {
+                    BigDecimal montantPaye = paidByLogement.getOrDefault(logement.getId(), BigDecimal.ZERO);
+                    return new DepenseContributionLogementResponse(
+                            logement.getId(),
+                            buildLogementLabel(logement),
+                            logement.getCodeInterne(),
                             montantDu,
                             montantPaye,
                             computeContributionStatus(montantPaye, montantDu)
@@ -256,28 +275,84 @@ public class DepenseService {
             return request.getMontantParPersonne();
         }
 
-        long participantsCount = userRepository.countByResidence_IdAndStatusAndRoleIn(
-                residence.getId(),
-                UserStatus.ACTIVE,
-                List.of(UserRole.ADMIN, UserRole.USER)
-        );
+        long participantsCount = logementRepository.countByResidence_IdAndActiveTrue(residence.getId());
         if (participantsCount <= 0) {
-            throw new IllegalStateException("No active participants found for residence");
+            throw new IllegalStateException("No active logements found for residence");
         }
 
         return request.getMontant().divide(BigDecimal.valueOf(participantsCount), 2, RoundingMode.HALF_UP);
     }
 
-    private Map<Long, BigDecimal> getPaidAmountsByUser(final Long depenseId) {
-        Map<Long, BigDecimal> paidByUser = new HashMap<>();
-        for (Object[] row : paiementRepository.sumMontantTotalByDepenseAndTypeAndStatusGroupedByUtilisateur(
+    private Map<Long, BigDecimal> getPaidAmountsByLogement(final Long depenseId) {
+        Map<Long, BigDecimal> paidByLogement = new HashMap<>();
+        for (Object[] row : paiementRepository.sumMontantTotalByDepenseAndTypeAndStatusGroupedByLogement(
                 depenseId,
                 TypePaiement.DEPENSE_PARTAGE,
                 PaiementStatus.VALIDATED
         )) {
-            paidByUser.put((Long) row[0], (BigDecimal) row[1]);
+            paidByLogement.put((Long) row[0], (BigDecimal) row[1]);
         }
-        return paidByUser;
+        return paidByLogement;
+    }
+
+    private String buildLogementLabel(final Logement logement) {
+        LogementSummaryResponse summary = LogementSummaryResponse.fromEntity(logement);
+        return summary.getImmeuble() == null || summary.getImmeuble().isBlank()
+                ? summary.getNumero()
+                : summary.getImmeuble() + " - " + summary.getNumero();
+    }
+
+    private List<Logement> getActiveParticipantLogements(final Long residenceId) {
+        return logementRepository.findAllByResidence_IdAndActiveOrderByNumeroAsc(residenceId, Boolean.TRUE);
+    }
+
+    private SharedExpenseSummaryResponse toSharedExpenseSummary(
+            final Depense depense,
+            final List<Logement> participantLogements
+    ) {
+        Map<Long, BigDecimal> paidByLogement = getPaidAmountsByLogement(depense.getId());
+        List<SharedExpenseParticipantResponse> participants = participantLogements.stream()
+                .map(logement -> toSharedExpenseParticipant(depense, logement, paidByLogement))
+                .toList();
+        BigDecimal montantPayeTotal = participants.stream()
+                .map(SharedExpenseParticipantResponse::getMontantPaye)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        int remainingParticipantsCount = (int) participants.stream()
+                .filter(participant -> !"PAYE".equals(participant.getStatut()))
+                .count();
+
+        return new SharedExpenseSummaryResponse(
+                depense.getId(),
+                depense.getResidence().getId(),
+                depense.getCategorie() == null ? null : depense.getCategorie().getId(),
+                depense.getCategorie() == null ? null : depense.getCategorie().getNom(),
+                depense.getDescription(),
+                depense.getMontant(),
+                montantPayeTotal,
+                depense.getMontantParPersonne(),
+                remainingParticipantsCount,
+                depense.getDateCreation(),
+                depense.getDateValidation(),
+                ExpenseUserSummaryResponse.fromUser(depense.getCreePar()),
+                participants
+        );
+    }
+
+    private SharedExpenseParticipantResponse toSharedExpenseParticipant(
+            final Depense depense,
+            final Logement logement,
+            final Map<Long, BigDecimal> paidByLogement
+    ) {
+        BigDecimal montantPaye = paidByLogement.getOrDefault(logement.getId(), BigDecimal.ZERO);
+        BigDecimal montantDu = depense.getMontantParPersonne();
+        return new SharedExpenseParticipantResponse(
+                logement.getId(),
+                buildLogementLabel(logement),
+                logement.getCodeInterne(),
+                montantDu,
+                montantPaye,
+                computeContributionStatus(montantPaye, montantDu)
+        );
     }
 
     private String computeContributionStatus(final BigDecimal montantPaye, final BigDecimal montantDu) {
@@ -287,6 +362,6 @@ public class DepenseService {
         if (montantPaye.compareTo(montantDu) >= 0) {
             return "PAYE";
         }
-        return "PARTIEL";
+        return "PARTIELLEMENT_PAYE";
     }
 }

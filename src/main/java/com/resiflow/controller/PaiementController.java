@@ -3,6 +3,7 @@ package com.resiflow.controller;
 import com.resiflow.dto.PaymentStatusTimelineResponse;
 import com.resiflow.dto.CreateMyPaiementRequest;
 import com.resiflow.dto.CreatePaiementRequest;
+import com.resiflow.dto.PaiementAdminPendingResponse;
 import com.resiflow.dto.PaiementResponse;
 import com.resiflow.security.AuthenticatedUser;
 import com.resiflow.service.PaiementService;
@@ -93,10 +94,10 @@ public class PaiementController {
 
     @GetMapping("/admin/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<List<PaiementResponse>> getPendingPaiementsForAdmin(final Authentication authentication) {
+    public ResponseEntity<List<PaiementAdminPendingResponse>> getPendingPaiementsForAdmin(final Authentication authentication) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         return ResponseEntity.ok(paiementService.getPendingPaiementsForAdmin(authenticatedUser).stream()
-                .map(PaiementResponse::fromEntity)
+                .map(PaiementAdminPendingResponse::fromEntity)
                 .toList());
     }
 
@@ -146,5 +147,15 @@ public class PaiementController {
     ) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         return ResponseEntity.ok(paiementService.getAdminUserPaymentStatusByEmail(email, authenticatedUser));
+    }
+
+    @GetMapping("/admin/logement/{logementId}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<PaymentStatusTimelineResponse> getAdminLogementPaymentStatus(
+            @PathVariable final Long logementId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(paiementService.getAdminLogementPaymentStatus(logementId, authenticatedUser));
     }
 }

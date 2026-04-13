@@ -5,30 +5,30 @@ import java.time.LocalDate;
 
 public class ResidenceImpayeResponse {
 
-    private final Long id;
-    private final String email;
+    private final Long logementId;
+    private final LogementSummaryResponse logement;
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private final LocalDate dateFinDernierPaiement;
     private final Long nombreJoursRetard;
 
     public ResidenceImpayeResponse(
-            final Long id,
-            final String email,
+            final Long logementId,
+            final LogementSummaryResponse logement,
             final LocalDate dateFinDernierPaiement,
             final Long nombreJoursRetard
     ) {
-        this.id = id;
-        this.email = email;
+        this.logementId = logementId;
+        this.logement = logement;
         this.dateFinDernierPaiement = dateFinDernierPaiement;
         this.nombreJoursRetard = nombreJoursRetard;
     }
 
-    public Long getId() {
-        return id;
+    public Long getLogementId() {
+        return logementId;
     }
 
-    public String getEmail() {
-        return email;
+    public LogementSummaryResponse getLogement() {
+        return logement;
     }
 
     public LocalDate getDateFinDernierPaiement() {

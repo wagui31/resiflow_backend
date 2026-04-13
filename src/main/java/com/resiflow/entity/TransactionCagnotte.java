@@ -28,8 +28,8 @@ public class TransactionCagnotte {
     private Residence residence;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @JoinColumn(name = "logement_id")
+    private Logement logement;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -60,12 +60,12 @@ public class TransactionCagnotte {
         this.residence = residence;
     }
 
-    public User getUser() {
-        return user;
+    public Logement getLogement() {
+        return logement;
     }
 
-    public void setUser(final User user) {
-        this.user = user;
+    public void setLogement(final Logement logement) {
+        this.logement = logement;
     }
 
     public TypeTransactionCagnotte getType() {

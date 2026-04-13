@@ -4,9 +4,9 @@ import com.resiflow.dto.LoginRequest;
 import com.resiflow.dto.LoginResponse;
 import com.resiflow.dto.RegisterRequest;
 import com.resiflow.dto.ApiErrorCode;
+import com.resiflow.entity.Logement;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
-import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.UserStatus;
 import com.resiflow.repository.UserRepository;
 import com.resiflow.security.JwtService;
@@ -26,6 +26,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final ResidenceService residenceService;
+    private final LogementService logementService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final CaptchaVerificationService captchaVerificationService;
@@ -34,6 +35,7 @@ public class AuthService {
     public AuthService(
             final UserRepository userRepository,
             final ResidenceService residenceService,
+            final LogementService logementService,
             final JwtService jwtService,
             final PasswordEncoder passwordEncoder,
             final CaptchaVerificationService captchaVerificationService,
@@ -41,6 +43,7 @@ public class AuthService {
     ) {
         this.userRepository = userRepository;
         this.residenceService = residenceService;
+        this.logementService = logementService;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
         this.captchaVerificationService = captchaVerificationService;
@@ -95,16 +98,18 @@ public class AuthService {
 
         User user = new User();
         LocalDateTime now = LocalDateTime.now();
+        Logement logement = logementService.getRequiredLogement(request.getLogementId());
+        logementService.ensureLogementCanAcceptRegistration(logement.getId());
+        Long residenceId = residenceService.getRequiredResidenceByCode(request.getResidenceCode().trim().toUpperCase()).getId();
+        logementService.ensureLogementBelongsToResidence(logement.getId(), residenceId);
         user.setEmail(email);
         user.setFirstName(normalizeOptionalValue(request.getFirstName()));
         user.setLastName(normalizeOptionalValue(request.getLastName()));
         user.setPassword(passwordEncoder.encode(request.getPassword().trim()));
-        user.setResidence(residenceService.getRequiredResidenceByCode(request.getResidenceCode().trim().toUpperCase()));
+        user.setResidence(logement.getResidence());
+        user.setLogement(logement);
         user.setRole(UserRole.USER);
         user.setStatus(UserStatus.PENDING);
-        user.setStatutPaiement(StatutPaiement.EN_RETARD);
-        user.setNumeroImmeuble(normalizeOptionalValue(request.getNumeroImmeuble()));
-        user.setCodeLogement(normalizeOptionalValue(request.getCodeLogement()));
         user.setDateEntreeResidence(now.toLocalDate());
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
@@ -171,6 +176,9 @@ public class AuthService {
         }
         if (isBlank(request.getResidenceCode())) {
             throw new IllegalArgumentException("Residence code must not be blank");
+        }
+        if (request.getLogementId() == null) {
+            throw new IllegalArgumentException("Logement ID must not be null");
         }
     }
 

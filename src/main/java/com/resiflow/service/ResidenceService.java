@@ -31,6 +31,7 @@ public class ResidenceService {
         residence.setEnabled(request.getEnabled() == null || request.getEnabled());
         residence.setMontantMensuel(request.getMontantMensuel());
         residence.setCurrency(normalizeCurrency(request.getCurrency()));
+        residence.setMaxOccupantsParLogement(request.getMaxOccupantsParLogement());
         residence.setCreatedAt(now);
         residence.setUpdatedAt(now);
 
@@ -54,6 +55,7 @@ public class ResidenceService {
         residence.setEnabled(request.getEnabled() == null || request.getEnabled());
         residence.setMontantMensuel(request.getMontantMensuel());
         residence.setCurrency(normalizeCurrency(request.getCurrency()));
+        residence.setMaxOccupantsParLogement(request.getMaxOccupantsParLogement());
         residence.setUpdatedAt(LocalDateTime.now());
 
         return residenceRepository.save(residence);
@@ -103,6 +105,9 @@ public class ResidenceService {
         }
         if (!isValidCurrency(request.getCurrency())) {
             throw new IllegalArgumentException("Residence currency must be a 3-letter ISO code");
+        }
+        if (request.getMaxOccupantsParLogement() == null || request.getMaxOccupantsParLogement() <= 0) {
+            throw new IllegalArgumentException("Residence max occupants per logement must be greater than zero");
         }
     }
 

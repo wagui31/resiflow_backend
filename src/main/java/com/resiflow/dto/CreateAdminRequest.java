@@ -7,6 +7,7 @@ public class CreateAdminRequest {
     private String lastName;
     private String password;
     private Long residenceId;
+    private Long logementId;
 
     public String getEmail() {
         return email;
@@ -46,5 +47,13 @@ public class CreateAdminRequest {
 
     public void setResidenceId(final Long residenceId) {
         this.residenceId = residenceId;
+    }
+
+    public Long getLogementId() {
+        return logementId;
+    }
+
+    public void setLogementId(final Long logementId) {
+        this.logementId = logementId;
     }
 }

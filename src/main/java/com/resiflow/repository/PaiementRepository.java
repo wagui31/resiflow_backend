@@ -12,15 +12,15 @@ import org.springframework.data.repository.query.Param;
 
 public interface PaiementRepository extends JpaRepository<Paiement, Long> {
 
-    List<Paiement> findAllByUtilisateur_IdOrderByDatePaiementDesc(Long userId);
+    List<Paiement> findAllByLogement_IdOrderByDatePaiementDesc(Long logementId);
 
     List<Paiement> findAllByResidence_IdOrderByDatePaiementDesc(Long residenceId);
 
     List<Paiement> findAllByResidence_IdAndTypePaiementOrderByDatePaiementDesc(Long residenceId, TypePaiement typePaiement);
 
-    Optional<Paiement> findFirstByUtilisateur_IdOrderByDateFinDescDatePaiementDesc(Long userId);
+    Optional<Paiement> findFirstByLogement_IdOrderByDateFinDescDatePaiementDesc(Long logementId);
 
-    List<Paiement> findAllByUtilisateur_IdAndStatusOrderByDatePaiementDesc(Long userId, PaiementStatus status);
+    List<Paiement> findAllByLogement_IdAndStatusOrderByDatePaiementDesc(Long logementId, PaiementStatus status);
 
     List<Paiement> findAllByResidence_IdAndStatusOrderByDatePaiementDesc(Long residenceId, PaiementStatus status);
 
@@ -30,24 +30,41 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
             TypePaiement typePaiement
     );
 
-    Optional<Paiement> findFirstByUtilisateur_IdAndStatusOrderByDateFinDescDatePaiementDesc(Long userId, PaiementStatus status);
+    @Query("""
+            select p
+            from Paiement p
+            join fetch p.logement l
+            join fetch p.residence r
+            join fetch p.creePar c
+            where r.id = :residenceId
+              and p.status = :status
+              and p.typePaiement = :typePaiement
+            order by p.datePaiement desc
+            """)
+    List<Paiement> findAllAdminPendingWithDetails(
+            @Param("residenceId") Long residenceId,
+            @Param("status") PaiementStatus status,
+            @Param("typePaiement") TypePaiement typePaiement
+    );
 
-    Optional<Paiement> findFirstByUtilisateur_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
-            Long userId,
+    Optional<Paiement> findFirstByLogement_IdAndStatusOrderByDateFinDescDatePaiementDesc(Long logementId, PaiementStatus status);
+
+    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+            Long logementId,
             PaiementStatus status,
             TypePaiement typePaiement
     );
 
-    Optional<Paiement> findFirstByUtilisateur_IdAndStatusOrderByDatePaiementDesc(Long userId, PaiementStatus status);
+    Optional<Paiement> findFirstByLogement_IdAndStatusOrderByDatePaiementDesc(Long logementId, PaiementStatus status);
 
-    Optional<Paiement> findFirstByUtilisateur_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
-            Long userId,
+    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+            Long logementId,
             PaiementStatus status,
             TypePaiement typePaiement
     );
 
-    Optional<Paiement> findFirstByUtilisateur_IdAndStatusAndTypePaiementAndDepense_IdOrderByDatePaiementDesc(
-            Long userId,
+    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementAndDepense_IdOrderByDatePaiementDesc(
+            Long logementId,
             PaiementStatus status,
             TypePaiement typePaiement,
             Long depenseId
@@ -55,12 +72,12 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
 
     List<Paiement> findAllByDepense_IdOrderByDatePaiementDesc(Long depenseId);
 
-    boolean existsByUtilisateur_IdAndStatus(Long userId, PaiementStatus status);
+    boolean existsByLogement_IdAndStatus(Long logementId, PaiementStatus status);
 
-    boolean existsByUtilisateur_IdAndStatusAndTypePaiement(Long userId, PaiementStatus status, TypePaiement typePaiement);
+    boolean existsByLogement_IdAndStatusAndTypePaiement(Long logementId, PaiementStatus status, TypePaiement typePaiement);
 
-    boolean existsByUtilisateur_IdAndStatusAndTypePaiementAndDepense_Id(
-            Long userId,
+    boolean existsByLogement_IdAndStatusAndTypePaiementAndDepense_Id(
+            Long logementId,
             PaiementStatus status,
             TypePaiement typePaiement,
             Long depenseId
@@ -69,27 +86,27 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
     @Query("""
             select coalesce(sum(p.montantTotal), 0)
             from Paiement p
-            where p.utilisateur.id = :userId
+            where p.logement.id = :logementId
               and p.depense.id = :depenseId
               and p.typePaiement = :typePaiement
               and p.status = :status
             """)
-    BigDecimal sumMontantTotalByUtilisateurAndDepenseAndTypeAndStatus(
-            @Param("userId") Long userId,
+    BigDecimal sumMontantTotalByLogementAndDepenseAndTypeAndStatus(
+            @Param("logementId") Long logementId,
             @Param("depenseId") Long depenseId,
             @Param("typePaiement") TypePaiement typePaiement,
             @Param("status") PaiementStatus status
     );
 
     @Query("""
-            select p.utilisateur.id, coalesce(sum(p.montantTotal), 0)
+            select p.logement.id, coalesce(sum(p.montantTotal), 0)
             from Paiement p
             where p.depense.id = :depenseId
               and p.typePaiement = :typePaiement
               and p.status = :status
-            group by p.utilisateur.id
+            group by p.logement.id
             """)
-    List<Object[]> sumMontantTotalByDepenseAndTypeAndStatusGroupedByUtilisateur(
+    List<Object[]> sumMontantTotalByDepenseAndTypeAndStatusGroupedByLogement(
             @Param("depenseId") Long depenseId,
             @Param("typePaiement") TypePaiement typePaiement,
             @Param("status") PaiementStatus status

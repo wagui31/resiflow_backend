@@ -28,7 +28,7 @@ class AdminUserControllerTest {
 
     @BeforeEach
     void setUp() {
-        UserService userService = new UserService(null, new BCryptPasswordEncoder(), null, null) {
+        UserService userService = new UserService(null, new BCryptPasswordEncoder(), null, null, null, null) {
             @Override
             public User updateUserRole(
                     final Long userId,

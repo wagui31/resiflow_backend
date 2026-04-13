@@ -22,7 +22,7 @@ public class TransactionCagnotteService {
         }
         TransactionCagnotte transaction = new TransactionCagnotte();
         transaction.setResidence(paiement.getResidence());
-        transaction.setUser(paiement.getUtilisateur());
+        transaction.setLogement(paiement.getLogement());
         transaction.setType(TypeTransactionCagnotte.CONTRIBUTION);
         transaction.setMontant(paiement.getMontantTotal());
         transaction.setReferenceId(paiement.getId());
@@ -32,7 +32,7 @@ public class TransactionCagnotteService {
     public TransactionCagnotte createDepenseTransaction(final Depense depense) {
         TransactionCagnotte transaction = new TransactionCagnotte();
         transaction.setResidence(depense.getResidence());
-        transaction.setUser(null);
+        transaction.setLogement(null);
         transaction.setType(TypeTransactionCagnotte.DEPENSE);
         transaction.setMontant(depense.getMontant());
         transaction.setReferenceId(depense.getId());

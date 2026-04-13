@@ -10,6 +10,7 @@ public class CreateResidenceRequest {
     private Boolean enabled;
     private BigDecimal montantMensuel;
     private String currency;
+    private Integer maxOccupantsParLogement;
 
     public String getName() {
         return name;
@@ -57,5 +58,13 @@ public class CreateResidenceRequest {
 
     public void setCurrency(final String currency) {
         this.currency = currency;
+    }
+
+    public Integer getMaxOccupantsParLogement() {
+        return maxOccupantsParLogement;
+    }
+
+    public void setMaxOccupantsParLogement(final Integer maxOccupantsParLogement) {
+        this.maxOccupantsParLogement = maxOccupantsParLogement;
     }
 }

@@ -1,16 +1,20 @@
 package com.resiflow.service;
 
 import com.resiflow.dto.CreateDepenseRequest;
+import com.resiflow.entity.Logement;
+import com.resiflow.entity.CategorieDepense;
 import com.resiflow.entity.Depense;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.TypeDepense;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.repository.DepenseRepository;
+import com.resiflow.repository.LogementRepository;
 import com.resiflow.repository.PaiementRepository;
 import com.resiflow.repository.UserRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,13 +29,14 @@ import static org.mockito.Mockito.when;
 class DepenseServiceTest {
 
     @Test
-    void createDepenseRequiresCategorieIdForCagnotte() {
+    void createDepenseRequiresCategorieId() {
         DepenseRepository depenseRepository = mock(DepenseRepository.class);
         CategorieDepenseService categorieDepenseService = mock(CategorieDepenseService.class);
         ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
         TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
         UserRepository userRepository = mock(UserRepository.class);
         PaiementRepository paiementRepository = mock(PaiementRepository.class);
+        LogementRepository logementRepository = mock(LogementRepository.class);
 
         DepenseService depenseService = new DepenseService(
                 depenseRepository,
@@ -39,7 +44,8 @@ class DepenseServiceTest {
                 residenceAccessService,
                 transactionCagnotteService,
                 userRepository,
-                paiementRepository
+                paiementRepository,
+                logementRepository
         );
 
         CreateDepenseRequest request = new CreateDepenseRequest();
@@ -59,13 +65,14 @@ class DepenseServiceTest {
     }
 
     @Test
-    void createDepenseAllowsNullCategorieIdForPartage() {
+    void createDepenseCreatesPendingDepenseForPartage() {
         DepenseRepository depenseRepository = mock(DepenseRepository.class);
         CategorieDepenseService categorieDepenseService = mock(CategorieDepenseService.class);
         ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
         TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
         UserRepository userRepository = mock(UserRepository.class);
         PaiementRepository paiementRepository = mock(PaiementRepository.class);
+        LogementRepository logementRepository = mock(LogementRepository.class);
 
         DepenseService depenseService = new DepenseService(
                 depenseRepository,
@@ -73,11 +80,13 @@ class DepenseServiceTest {
                 residenceAccessService,
                 transactionCagnotteService,
                 userRepository,
-                paiementRepository
+                paiementRepository,
+                logementRepository
         );
 
         CreateDepenseRequest request = new CreateDepenseRequest();
         request.setResidenceId(7L);
+        request.setCategorieId(5L);
         request.setMontant(new BigDecimal("300.00"));
         request.setDescription("Frais partages");
         request.setTypeDepense(TypeDepense.PARTAGE);
@@ -89,24 +98,75 @@ class DepenseServiceTest {
         User actor = new User();
         actor.setId(2L);
 
-        Depense savedDepense = new Depense();
-        savedDepense.setResidence(residence);
-        savedDepense.setCreePar(actor);
-        savedDepense.setTypeDepense(TypeDepense.PARTAGE);
-        savedDepense.setMontant(new BigDecimal("300.00"));
-        savedDepense.setMontantParPersonne(new BigDecimal("100.00"));
-        savedDepense.setDescription("Frais partages");
+        CategorieDepense categorie = new CategorieDepense();
+        categorie.setId(5L);
+        categorie.setNom("Entretien");
 
         when(residenceAccessService.getResidenceForAdmin(eq(7L), any(AuthenticatedUser.class))).thenReturn(residence);
         when(residenceAccessService.getRequiredActor(any())).thenReturn(actor);
+        when(categorieDepenseService.getRequiredCategorieDepense(5L)).thenReturn(categorie);
+        when(logementRepository.countByResidence_IdAndActiveTrue(7L)).thenReturn(3L);
         when(depenseRepository.save(any(Depense.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(2L, "admin@example.com", 7L, UserRole.ADMIN);
         Depense result = depenseService.createDepense(request, authenticatedUser);
 
-        assertThat(result.getCategorie()).isNull();
+        assertThat(result.getCategorie()).isEqualTo(categorie);
         assertThat(result.getTypeDepense()).isEqualTo(TypeDepense.PARTAGE);
         assertThat(result.getMontantParPersonne()).isEqualByComparingTo("100.00");
-        verify(categorieDepenseService, never()).getRequiredCategorieDepense(any());
+        assertThat(result.getCreePar()).isEqualTo(actor);
+        assertThat(result.getResidence()).isEqualTo(residence);
+    }
+
+    @Test
+    void createDepenseComputesSharedAmountPerActiveLogement() {
+        DepenseRepository depenseRepository = mock(DepenseRepository.class);
+        CategorieDepenseService categorieDepenseService = mock(CategorieDepenseService.class);
+        ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
+        TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        PaiementRepository paiementRepository = mock(PaiementRepository.class);
+        LogementRepository logementRepository = mock(LogementRepository.class);
+
+        DepenseService depenseService = new DepenseService(
+                depenseRepository,
+                categorieDepenseService,
+                residenceAccessService,
+                transactionCagnotteService,
+                userRepository,
+                paiementRepository,
+                logementRepository
+        );
+
+        CreateDepenseRequest request = new CreateDepenseRequest();
+        request.setResidenceId(7L);
+        request.setCategorieId(5L);
+        request.setMontant(new BigDecimal("120.00"));
+        request.setDescription("Menage commun");
+        request.setTypeDepense(TypeDepense.PARTAGE);
+
+        Residence residence = new Residence();
+        residence.setId(7L);
+
+        User actor = new User();
+        actor.setId(2L);
+
+        CategorieDepense categorie = new CategorieDepense();
+        categorie.setId(5L);
+        categorie.setNom("Entretien");
+
+        when(residenceAccessService.getResidenceForAdmin(eq(7L), any(AuthenticatedUser.class))).thenReturn(residence);
+        when(residenceAccessService.getRequiredActor(any())).thenReturn(actor);
+        when(categorieDepenseService.getRequiredCategorieDepense(5L)).thenReturn(categorie);
+        when(logementRepository.countByResidence_IdAndActiveTrue(7L)).thenReturn(4L);
+        when(depenseRepository.save(any(Depense.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Depense result = depenseService.createDepense(
+                request,
+                new AuthenticatedUser(2L, "admin@example.com", 7L, UserRole.ADMIN)
+        );
+
+        assertThat(result.getMontantParPersonne()).isEqualByComparingTo("30.00");
+        verify(logementRepository).countByResidence_IdAndActiveTrue(7L);
     }
 }

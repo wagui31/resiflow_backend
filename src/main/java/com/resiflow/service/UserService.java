@@ -3,6 +3,7 @@ package com.resiflow.service;
 import com.resiflow.dto.AdminUserActionRequest;
 import com.resiflow.dto.CreateAdminRequest;
 import com.resiflow.dto.UpdateCurrentUserRequest;
+import com.resiflow.entity.Logement;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.User;
@@ -15,7 +16,6 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,6 +28,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ResidenceService residenceService;
+    private final LogementService logementService;
     private final PaymentStatusService paymentStatusService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -35,22 +36,14 @@ public class UserService {
             final UserRepository userRepository,
             final PasswordEncoder passwordEncoder,
             final ResidenceService residenceService,
-            final ApplicationEventPublisher eventPublisher
-    ) {
-        this(userRepository, passwordEncoder, residenceService, null, eventPublisher);
-    }
-
-    @Autowired
-    public UserService(
-            final UserRepository userRepository,
-            final PasswordEncoder passwordEncoder,
-            final ResidenceService residenceService,
+            final LogementService logementService,
             final PaymentStatusService paymentStatusService,
             final ApplicationEventPublisher eventPublisher
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.residenceService = residenceService;
+        this.logementService = logementService;
         this.paymentStatusService = paymentStatusService;
         this.eventPublisher = eventPublisher;
     }
@@ -61,6 +54,9 @@ public class UserService {
         ensureEmailAvailable(request.getEmail());
 
         Residence residence = residenceService.getRequiredResidence(request.getResidenceId());
+        Logement logement = logementService.getRequiredLogement(request.getLogementId());
+        logementService.ensureLogementBelongsToResidence(logement.getId(), residence.getId());
+        logementService.ensureLogementCanAcceptRegistration(logement.getId());
 
         User user = new User();
         LocalDateTime now = LocalDateTime.now();
@@ -69,47 +65,44 @@ public class UserService {
         user.setLastName(normalizeOptionalValue(request.getLastName()));
         user.setPassword(passwordEncoder.encode(request.getPassword().trim()));
         user.setResidence(residence);
+        user.setLogement(logement);
         user.setRole(UserRole.ADMIN);
         user.setStatus(UserStatus.ACTIVE);
-        user.setStatutPaiement(StatutPaiement.EN_RETARD);
         user.setDateEntreeResidence(now.toLocalDate());
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        logementService.activateLogementAfterUserApproval(logement);
+        return savedUser;
     }
 
     public List<User> getUsers(final AuthenticatedUser authenticatedUser) {
         AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
-
         if (actor.role() == UserRole.SUPER_ADMIN) {
-            return userRepository.findAll().stream()
-                    .map(this::refreshPaymentStatusIfConfigured)
-                    .toList();
+            return userRepository.findAll().stream().map(paymentStatusService::refreshPaymentStatus).toList();
         }
         if (actor.role() == UserRole.ADMIN) {
             requireResidenceId(actor.residenceId());
             return userRepository.findAllByResidence_Id(actor.residenceId()).stream()
-                    .map(this::refreshPaymentStatusIfConfigured)
+                    .map(paymentStatusService::refreshPaymentStatus)
                     .toList();
         }
-
         throw new AccessDeniedException("Insufficient role to access users");
     }
 
     public User getCurrentUser(final AuthenticatedUser authenticatedUser) {
         AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
         return userRepository.findById(actor.userId())
-                .map(this::refreshPaymentStatusIfConfigured)
+                .map(paymentStatusService::refreshPaymentStatus)
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + actor.userId()));
     }
 
     public List<User> getResidenceUsers(final AuthenticatedUser authenticatedUser) {
         AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
         requireResidenceId(actor.residenceId());
-
         return userRepository.findAllByResidence_IdAndStatus(actor.residenceId(), UserStatus.ACTIVE).stream()
-                .map(this::refreshPaymentStatusIfConfigured)
+                .map(paymentStatusService::refreshPaymentStatus)
                 .sorted(residenceUserComparator(actor.userId()))
                 .toList();
     }
@@ -124,13 +117,13 @@ public class UserService {
         AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
         if (actor.role() == UserRole.SUPER_ADMIN) {
             return userRepository.findAllByStatus(UserStatus.PENDING).stream()
-                    .map(this::refreshPaymentStatusIfConfigured)
+                    .map(paymentStatusService::refreshPaymentStatus)
                     .toList();
         }
         if (actor.role() == UserRole.ADMIN) {
             requireResidenceId(actor.residenceId());
             return userRepository.findAllByResidence_IdAndStatus(actor.residenceId(), UserStatus.PENDING).stream()
-                    .map(this::refreshPaymentStatusIfConfigured)
+                    .map(paymentStatusService::refreshPaymentStatus)
                     .toList();
         }
         throw new AccessDeniedException("Insufficient role to access pending users");
@@ -147,6 +140,7 @@ public class UserService {
         user.setStatus(UserStatus.ACTIVE);
         user.setUpdatedAt(LocalDateTime.now());
         User savedUser = userRepository.save(user);
+        logementService.activateLogementAfterUserApproval(savedUser.getLogement());
         eventPublisher.publishEvent(new UserEmailNotificationEvent(
                 savedUser.getEmail(),
                 "Votre compte ResiFlow est valide",
@@ -169,7 +163,7 @@ public class UserService {
         eventPublisher.publishEvent(new UserEmailNotificationEvent(
                 savedUser.getEmail(),
                 "Votre demande a ete refusee",
-                buildActionBody("rejete", request)
+                buildActionBody("rejetee", request)
         ));
         return savedUser;
     }
@@ -186,11 +180,7 @@ public class UserService {
         User user = getManageableUser(userId, authenticatedUser);
         user.setDateEntreeResidence(dateEntreeResidence);
         user.setUpdatedAt(LocalDateTime.now());
-        User savedUser = userRepository.save(user);
-        if (paymentStatusService != null) {
-            return paymentStatusService.refreshPaymentStatus(savedUser);
-        }
-        return savedUser;
+        return userRepository.save(user);
     }
 
     @Transactional
@@ -200,20 +190,15 @@ public class UserService {
             final UserRole role
     ) {
         validateRoleUpdateRequest(role);
-
         AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
         User user = getRoleManageableUser(userId, actor);
-
         if (user.getRole() == role) {
-            return refreshPaymentStatusIfConfigured(user);
+            return user;
         }
-
         ensureRoleChangeAllowed(user, actor, role);
         user.setRole(role);
         user.setUpdatedAt(LocalDateTime.now());
-
-        User savedUser = userRepository.save(user);
-        return refreshPaymentStatusIfConfigured(savedUser);
+        return userRepository.save(user);
     }
 
     @Transactional
@@ -222,19 +207,13 @@ public class UserService {
             final UpdateCurrentUserRequest request
     ) {
         validateUpdateCurrentUserRequest(request);
-
         AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
         User user = userRepository.findByIdForUpdate(actor.userId())
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + actor.userId()));
-
         user.setFirstName(request.getFirstName().trim());
         user.setLastName(request.getLastName().trim());
-        user.setNumeroImmeuble(normalizeOptionalValue(request.getNumeroImmeuble()));
-        user.setCodeLogement(normalizeOptionalValue(request.getCodeLogement()));
         user.setUpdatedAt(LocalDateTime.now());
-
-        User savedUser = userRepository.save(user);
-        return refreshPaymentStatusIfConfigured(savedUser);
+        return userRepository.save(user);
     }
 
     @Transactional
@@ -256,6 +235,9 @@ public class UserService {
         }
         if (request.getResidenceId() == null) {
             throw new IllegalArgumentException("Residence ID must not be null");
+        }
+        if (request.getLogementId() == null) {
+            throw new IllegalArgumentException("Logement ID must not be null");
         }
     }
 
@@ -288,11 +270,8 @@ public class UserService {
     }
 
     private AuthenticatedUser requireAuthenticatedUser(final AuthenticatedUser authenticatedUser) {
-        if (authenticatedUser == null) {
+        if (authenticatedUser == null || authenticatedUser.userId() == null) {
             throw new IllegalArgumentException("Authenticated user must not be null");
-        }
-        if (authenticatedUser.userId() == null) {
-            throw new IllegalArgumentException("Authenticated user ID must not be null");
         }
         return authenticatedUser;
     }
@@ -317,14 +296,12 @@ public class UserService {
 
     private User getManageableUser(final Long userId, final AuthenticatedUser authenticatedUser) {
         AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
-
         if (actor.role() == UserRole.SUPER_ADMIN) {
             User user = userRepository.findByIdForUpdate(userId)
                     .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
             ensureAdminActionAllowed(actor, user);
             return user;
         }
-
         if (actor.role() == UserRole.ADMIN) {
             requireResidenceId(actor.residenceId());
             User user = userRepository.findByIdAndResidence_IdForUpdate(userId, actor.residenceId())
@@ -332,7 +309,6 @@ public class UserService {
             ensureAdminActionAllowed(actor, user);
             return user;
         }
-
         throw new AccessDeniedException("Insufficient role for this operation");
     }
 
@@ -341,13 +317,11 @@ public class UserService {
             return userRepository.findByIdForUpdate(userId)
                     .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
         }
-
         if (actor.role() == UserRole.ADMIN) {
             requireResidenceId(actor.residenceId());
             return userRepository.findByIdAndResidence_IdForUpdate(userId, actor.residenceId())
                     .orElseThrow(() -> new NoSuchElementException("User not found in residence: " + userId));
         }
-
         throw new AccessDeniedException("Insufficient role for this operation");
     }
 
@@ -419,7 +393,7 @@ public class UserService {
         if (user.getRole() == UserRole.ADMIN) {
             return 1;
         }
-        if (user.getStatutPaiement() == StatutPaiement.EN_RETARD) {
+        if (paymentStatusService.calculateStatus(user) == StatutPaiement.EN_RETARD) {
             return 2;
         }
         return 3;
@@ -460,12 +434,5 @@ public class UserService {
         if (user.getStatus() == UserStatus.REJECTED) {
             throw new IllegalStateException("Compte deja refuse");
         }
-    }
-
-    private User refreshPaymentStatusIfConfigured(final User user) {
-        if (paymentStatusService == null) {
-            return user;
-        }
-        return paymentStatusService.refreshPaymentStatus(user);
     }
 }

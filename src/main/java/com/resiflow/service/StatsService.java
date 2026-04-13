@@ -1,13 +1,21 @@
 package com.resiflow.service;
 
+import com.resiflow.dto.ExpenseCategoryCountResponse;
 import com.resiflow.dto.EvolutionCagnotteResponse;
+import com.resiflow.dto.ResidenceExpenseCategoryStatsResponse;
+import com.resiflow.dto.ResidencePaymentHousingStatsResponse;
 import com.resiflow.dto.StatsResponse;
 import com.resiflow.dto.TopPayeurResponse;
+import com.resiflow.entity.Depense;
+import com.resiflow.entity.Logement;
 import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
+import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.TransactionCagnotte;
 import com.resiflow.entity.TypeTransactionCagnotte;
 import com.resiflow.entity.TypePaiement;
+import com.resiflow.repository.DepenseRepository;
+import com.resiflow.repository.LogementRepository;
 import com.resiflow.repository.PaiementRepository;
 import com.resiflow.repository.TransactionCagnotteRepository;
 import com.resiflow.security.AuthenticatedUser;
@@ -30,15 +38,24 @@ public class StatsService {
     private final ResidenceAccessService residenceAccessService;
     private final PaiementRepository paiementRepository;
     private final TransactionCagnotteRepository transactionCagnotteRepository;
+    private final LogementRepository logementRepository;
+    private final DepenseRepository depenseRepository;
+    private final PaymentStatusService paymentStatusService;
 
     public StatsService(
             final ResidenceAccessService residenceAccessService,
             final PaiementRepository paiementRepository,
-            final TransactionCagnotteRepository transactionCagnotteRepository
+            final TransactionCagnotteRepository transactionCagnotteRepository,
+            final LogementRepository logementRepository,
+            final DepenseRepository depenseRepository,
+            final PaymentStatusService paymentStatusService
     ) {
         this.residenceAccessService = residenceAccessService;
         this.paiementRepository = paiementRepository;
         this.transactionCagnotteRepository = transactionCagnotteRepository;
+        this.logementRepository = logementRepository;
+        this.depenseRepository = depenseRepository;
+        this.paymentStatusService = paymentStatusService;
     }
 
     @Transactional(readOnly = true)
@@ -66,6 +83,58 @@ public class StatsService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public ResidencePaymentHousingStatsResponse getPaiementLogementStats(
+            final Long residenceId,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
+
+        List<Logement> logementsActifs =
+                logementRepository.findAllByResidence_IdAndActiveOrderByNumeroAsc(residenceId, Boolean.TRUE);
+        long logementsEnRetard = logementsActifs.stream()
+                .filter(logement -> paymentStatusService.calculateStatus(logement) == StatutPaiement.EN_RETARD)
+                .count();
+        long totalLogementsActifs = logementsActifs.size();
+
+        return new ResidencePaymentHousingStatsResponse(
+                residenceId,
+                totalLogementsActifs,
+                totalLogementsActifs - logementsEnRetard,
+                logementsEnRetard
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public ResidenceExpenseCategoryStatsResponse getDepenseCategoryStats(
+            final Long residenceId,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
+
+        List<ExpenseCategoryCountResponse> categories =
+                depenseRepository.findAllByResidence_IdOrderByDateCreationDesc(residenceId).stream()
+                        .collect(
+                                java.util.stream.Collectors.groupingBy(
+                                        this::buildCategoryKey,
+                                        java.util.stream.Collectors.counting()
+                                )
+                        )
+                        .entrySet()
+                        .stream()
+                        .sorted(Comparator.<Map.Entry<CategoryAggregationKey, Long>, Long>comparing(Map.Entry::getValue)
+                                .reversed()
+                                .thenComparing(entry -> entry.getKey().categorieNom()))
+                        .map(entry -> new ExpenseCategoryCountResponse(
+                                entry.getKey().categorieId(),
+                                entry.getKey().categorieNom(),
+                                entry.getValue()
+                        ))
+                        .toList();
+
+        return new ResidenceExpenseCategoryStatsResponse(residenceId, categories);
+    }
+
     private BigDecimal sumContributions(final List<TransactionCagnotte> transactions) {
         return transactions.stream()
                 .filter(transaction -> transaction.getType() == TypeTransactionCagnotte.CONTRIBUTION)
@@ -83,20 +152,23 @@ public class StatsService {
     private List<TopPayeurResponse> buildTopPayeurs(final List<Paiement> paiements) {
         Map<Long, TopPayeurAggregation> aggregations = new LinkedHashMap<>();
         for (Paiement paiement : paiements) {
-            Long userId = paiement.getUtilisateur().getId();
+            Long logementId = paiement.getLogement().getId();
             TopPayeurAggregation aggregation = aggregations.computeIfAbsent(
-                    userId,
-                    ignored -> new TopPayeurAggregation(userId, paiement.getUtilisateur().getEmail())
+                    logementId,
+                    ignored -> new TopPayeurAggregation(
+                            logementId,
+                            buildLogementLabel(paiement)
+                    )
             );
-            aggregations.put(userId, aggregation.add(paiement.getMontantTotal()));
+            aggregations.put(logementId, aggregation.add(paiement.getMontantTotal()));
         }
 
         return aggregations.values().stream()
                 .sorted(Comparator.comparing(TopPayeurAggregation::totalPaye).reversed()
-                        .thenComparing(TopPayeurAggregation::email))
+                        .thenComparing(TopPayeurAggregation::label))
                 .map(aggregation -> new TopPayeurResponse(
-                        aggregation.userId(),
-                        aggregation.email(),
+                        aggregation.logementId(),
+                        aggregation.label(),
                         aggregation.totalPaye()
                 ))
                 .toList();
@@ -127,14 +199,30 @@ public class StatsService {
         return evolution;
     }
 
-    private record TopPayeurAggregation(Long userId, String email, BigDecimal totalPaye) {
+    private String buildLogementLabel(final Paiement paiement) {
+        String numero = paiement.getLogement().getNumero();
+        String immeuble = paiement.getLogement().getImmeuble();
+        return immeuble == null || immeuble.isBlank() ? numero : immeuble + " - " + numero;
+    }
 
-        private TopPayeurAggregation(final Long userId, final String email) {
-            this(userId, email, BigDecimal.ZERO);
+    private CategoryAggregationKey buildCategoryKey(final Depense depense) {
+        if (depense.getCategorie() == null) {
+            return new CategoryAggregationKey(null, "Sans categorie");
+        }
+        return new CategoryAggregationKey(depense.getCategorie().getId(), depense.getCategorie().getNom());
+    }
+
+    private record TopPayeurAggregation(Long logementId, String label, BigDecimal totalPaye) {
+
+        private TopPayeurAggregation(final Long logementId, final String label) {
+            this(logementId, label, BigDecimal.ZERO);
         }
 
         private TopPayeurAggregation add(final BigDecimal montant) {
-            return new TopPayeurAggregation(userId, email, totalPaye.add(montant));
+            return new TopPayeurAggregation(logementId, label, totalPaye.add(montant));
         }
+    }
+
+    private record CategoryAggregationKey(Long categorieId, String categorieNom) {
     }
 }

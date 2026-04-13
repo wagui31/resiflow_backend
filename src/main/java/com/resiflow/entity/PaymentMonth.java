@@ -21,8 +21,8 @@ public class PaymentMonth {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "logement_id", nullable = false)
+    private Logement logement;
 
     @Column(name = "month", nullable = false, length = 7)
     private String month;
@@ -43,12 +43,12 @@ public class PaymentMonth {
         this.id = id;
     }
 
-    public User getUser() {
-        return user;
+    public Logement getLogement() {
+        return logement;
     }
 
-    public void setUser(final User user) {
-        this.user = user;
+    public void setLogement(final Logement logement) {
+        this.logement = logement;
     }
 
     public String getMonth() {

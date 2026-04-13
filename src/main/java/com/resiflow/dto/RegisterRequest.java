@@ -7,8 +7,7 @@ public class RegisterRequest {
     private String lastName;
     private String password;
     private String residenceCode;
-    private String numeroImmeuble;
-    private String codeLogement;
+    private Long logementId;
     private String captchaToken;
 
     public String getEmail() {
@@ -51,20 +50,12 @@ public class RegisterRequest {
         this.residenceCode = residenceCode;
     }
 
-    public String getNumeroImmeuble() {
-        return numeroImmeuble;
+    public Long getLogementId() {
+        return logementId;
     }
 
-    public void setNumeroImmeuble(final String numeroImmeuble) {
-        this.numeroImmeuble = numeroImmeuble;
-    }
-
-    public String getCodeLogement() {
-        return codeLogement;
-    }
-
-    public void setCodeLogement(final String codeLogement) {
-        this.codeLogement = codeLogement;
+    public void setLogementId(final Long logementId) {
+        this.logementId = logementId;
     }
 
     public String getCaptchaToken() {

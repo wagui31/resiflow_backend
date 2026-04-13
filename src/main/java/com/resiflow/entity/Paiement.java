@@ -25,8 +25,8 @@ public class Paiement {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "utilisateur_id", nullable = false)
-    private User utilisateur;
+    @JoinColumn(name = "logement_id", nullable = false)
+    private Logement logement;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "residence_id", nullable = false)
@@ -74,12 +74,16 @@ public class Paiement {
         this.id = id;
     }
 
-    public User getUtilisateur() {
-        return utilisateur;
+    public Logement getLogement() {
+        return logement;
     }
 
-    public void setUtilisateur(final User utilisateur) {
-        this.utilisateur = utilisateur;
+    public void setLogement(final Logement logement) {
+        this.logement = logement;
+    }
+
+    public Long getLogementId() {
+        return logement == null ? null : logement.getId();
     }
 
     public Residence getResidence() {

@@ -3,7 +3,6 @@ package com.resiflow.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
-import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.UserStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -18,13 +17,11 @@ public class UserResponse {
     private final String residenceName;
     private final String residenceCode;
     private final String currency;
-    private final String numeroImmeuble;
-    private final String codeLogement;
+    private final LogementSummaryResponse logement;
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private final LocalDate dateEntreeResidence;
     private final UserRole role;
     private final UserStatus status;
-    private final StatutPaiement statutPaiement;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
 
@@ -37,12 +34,10 @@ public class UserResponse {
             final String residenceName,
             final String residenceCode,
             final String currency,
-            final String numeroImmeuble,
-            final String codeLogement,
+            final LogementSummaryResponse logement,
             final LocalDate dateEntreeResidence,
             final UserRole role,
             final UserStatus status,
-            final StatutPaiement statutPaiement,
             final LocalDateTime createdAt,
             final LocalDateTime updatedAt
     ) {
@@ -54,51 +49,12 @@ public class UserResponse {
         this.residenceName = residenceName;
         this.residenceCode = residenceCode;
         this.currency = currency;
-        this.numeroImmeuble = numeroImmeuble;
-        this.codeLogement = codeLogement;
+        this.logement = logement;
         this.dateEntreeResidence = dateEntreeResidence;
         this.role = role;
         this.status = status;
-        this.statutPaiement = statutPaiement;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
-    }
-
-    public UserResponse(
-            final Long id,
-            final String email,
-            final String firstName,
-            final String lastName,
-            final Long residenceId,
-            final String residenceName,
-            final String residenceCode,
-            final String currency,
-            final String numeroImmeuble,
-            final String codeLogement,
-            final LocalDate dateEntreeResidence,
-            final UserRole role,
-            final UserStatus status,
-            final LocalDateTime createdAt,
-            final LocalDateTime updatedAt
-    ) {
-        this(
-                id,
-                email,
-                firstName,
-                lastName,
-                residenceId,
-                residenceName,
-                residenceCode,
-                currency,
-                numeroImmeuble,
-                codeLogement,
-                dateEntreeResidence,
-                role,
-                status,
-                null,
-                createdAt,
-                updatedAt
-        );
     }
 
     public static UserResponse fromUser(final User user) {
@@ -111,12 +67,10 @@ public class UserResponse {
                 user.getResidence() == null ? null : user.getResidence().getName(),
                 user.getResidence() == null ? null : user.getResidence().getCode(),
                 user.getResidence() == null ? null : user.getResidence().getCurrency(),
-                user.getNumeroImmeuble(),
-                user.getCodeLogement(),
+                LogementSummaryResponse.fromEntity(user.getLogement()),
                 user.getDateEntreeResidence(),
                 user.getRole(),
                 user.getStatus(),
-                user.getStatutPaiement(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
@@ -154,12 +108,8 @@ public class UserResponse {
         return currency;
     }
 
-    public String getNumeroImmeuble() {
-        return numeroImmeuble;
-    }
-
-    public String getCodeLogement() {
-        return codeLogement;
+    public LogementSummaryResponse getLogement() {
+        return logement;
     }
 
     public LocalDate getDateEntreeResidence() {
@@ -172,10 +122,6 @@ public class UserResponse {
 
     public UserStatus getStatus() {
         return status;
-    }
-
-    public StatutPaiement getStatutPaiement() {
-        return statutPaiement;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -12,6 +12,7 @@ public class ResidenceResponse {
     private final String code;
     private final BigDecimal montantMensuel;
     private final String currency;
+    private final Integer maxOccupantsParLogement;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
     private final Boolean enabled;
@@ -23,6 +24,7 @@ public class ResidenceResponse {
             final String code,
             final BigDecimal montantMensuel,
             final String currency,
+            final Integer maxOccupantsParLogement,
             final LocalDateTime createdAt,
             final LocalDateTime updatedAt,
             final Boolean enabled
@@ -33,22 +35,10 @@ public class ResidenceResponse {
         this.code = code;
         this.montantMensuel = montantMensuel;
         this.currency = currency;
+        this.maxOccupantsParLogement = maxOccupantsParLogement;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.enabled = enabled;
-    }
-
-    public ResidenceResponse(
-            final Long id,
-            final String name,
-            final String address,
-            final String code,
-            final String currency,
-            final LocalDateTime createdAt,
-            final LocalDateTime updatedAt,
-            final Boolean enabled
-    ) {
-        this(id, name, address, code, null, currency, createdAt, updatedAt, enabled);
     }
 
     public static ResidenceResponse fromResidence(final Residence residence) {
@@ -59,6 +49,7 @@ public class ResidenceResponse {
                 residence.getCode(),
                 residence.getMontantMensuel(),
                 residence.getCurrency(),
+                residence.getMaxOccupantsParLogement(),
                 residence.getCreatedAt(),
                 residence.getUpdatedAt(),
                 residence.getEnabled()
@@ -87,6 +78,10 @@ public class ResidenceResponse {
 
     public String getCurrency() {
         return currency;
+    }
+
+    public Integer getMaxOccupantsParLogement() {
+        return maxOccupantsParLogement;
     }
 
     public LocalDateTime getCreatedAt() {

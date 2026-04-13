@@ -2,15 +2,19 @@ package com.resiflow.controller;
 
 import com.resiflow.dto.CreateResidenceRequest;
 import com.resiflow.dto.DashboardResponse;
+import com.resiflow.dto.ResidenceExpenseCategoryStatsResponse;
 import com.resiflow.dto.ResidenceImpayeResponse;
+import com.resiflow.dto.ResidencePaymentHousingStatsResponse;
 import com.resiflow.dto.ResidenceParticipantsCountResponse;
 import com.resiflow.dto.ResidenceResponse;
+import com.resiflow.dto.ResidenceViewResponse;
 import com.resiflow.dto.StatsResponse;
 import com.resiflow.entity.Residence;
 import com.resiflow.security.AuthenticatedUser;
 import com.resiflow.service.DashboardService;
 import com.resiflow.service.PaiementService;
 import com.resiflow.service.ResidenceService;
+import com.resiflow.service.ResidenceViewService;
 import com.resiflow.service.StatsService;
 import com.resiflow.service.DepenseService;
 import java.util.List;
@@ -25,6 +29,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,19 +41,22 @@ public class ResidenceController {
     private final PaiementService paiementService;
     private final StatsService statsService;
     private final DepenseService depenseService;
+    private final ResidenceViewService residenceViewService;
 
     public ResidenceController(
             final ResidenceService residenceService,
             final DashboardService dashboardService,
             final PaiementService paiementService,
             final StatsService statsService,
-            final DepenseService depenseService
+            final DepenseService depenseService,
+            final ResidenceViewService residenceViewService
     ) {
         this.residenceService = residenceService;
         this.dashboardService = dashboardService;
         this.paiementService = paiementService;
         this.statsService = statsService;
         this.depenseService = depenseService;
+        this.residenceViewService = residenceViewService;
     }
 
     @PostMapping
@@ -77,6 +85,17 @@ public class ResidenceController {
         return ResponseEntity.ok(dashboardService.getDashboard(residenceId, authenticatedUser));
     }
 
+    @GetMapping("/{residenceId}/housing-view")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ResidenceViewResponse> getHousingView(
+            @PathVariable final Long residenceId,
+            @RequestParam(required = false, name = "q") final String search,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(residenceViewService.getResidenceView(residenceId, search, authenticatedUser));
+    }
+
     @GetMapping("/{residenceId}/impayes")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ResidenceImpayeResponse>> getImpayes(
@@ -97,9 +116,42 @@ public class ResidenceController {
         return ResponseEntity.ok(statsService.getStats(residenceId, authenticatedUser));
     }
 
+    @GetMapping("/{residenceId}/stats/paiements-logements")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ResidencePaymentHousingStatsResponse> getPaiementsLogementsStats(
+            @PathVariable final Long residenceId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(statsService.getPaiementLogementStats(residenceId, authenticatedUser));
+    }
+
+    @GetMapping("/{residenceId}/stats/depenses-par-categorie")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ResidenceExpenseCategoryStatsResponse> getDepensesParCategorieStats(
+            @PathVariable final Long residenceId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(statsService.getDepenseCategoryStats(residenceId, authenticatedUser));
+    }
+
     @GetMapping("/{residenceId}/participants-actifs")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ResidenceParticipantsCountResponse> getParticipantsActifs(
+            @PathVariable final Long residenceId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(new ResidenceParticipantsCountResponse(
+                residenceId,
+                depenseService.countActiveParticipants(residenceId, authenticatedUser)
+        ));
+    }
+
+    @GetMapping("/{residenceId}/logements-participants-actifs")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ResidenceParticipantsCountResponse> getLogementsParticipantsActifs(
             @PathVariable final Long residenceId,
             final Authentication authentication
     ) {

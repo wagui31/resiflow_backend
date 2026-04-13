@@ -11,9 +11,9 @@ import java.time.LocalDateTime;
 public class PaiementResponse {
 
     private final Long id;
-    private final Long utilisateurId;
-    private final String utilisateurEmail;
+    private final Long logementId;
     private final Long residenceId;
+    private final LogementSummaryResponse logement;
     private final Integer nombreMois;
     private final BigDecimal montantMensuel;
     private final BigDecimal montantTotal;
@@ -29,9 +29,9 @@ public class PaiementResponse {
 
     public PaiementResponse(
             final Long id,
-            final Long utilisateurId,
-            final String utilisateurEmail,
+            final Long logementId,
             final Long residenceId,
+            final LogementSummaryResponse logement,
             final Integer nombreMois,
             final BigDecimal montantMensuel,
             final BigDecimal montantTotal,
@@ -44,9 +44,9 @@ public class PaiementResponse {
             final Long depenseId
     ) {
         this.id = id;
-        this.utilisateurId = utilisateurId;
-        this.utilisateurEmail = utilisateurEmail;
+        this.logementId = logementId;
         this.residenceId = residenceId;
+        this.logement = logement;
         this.nombreMois = nombreMois;
         this.montantMensuel = montantMensuel;
         this.montantTotal = montantTotal;
@@ -62,9 +62,9 @@ public class PaiementResponse {
     public static PaiementResponse fromEntity(final Paiement paiement) {
         return new PaiementResponse(
                 paiement.getId(),
-                paiement.getUtilisateur().getId(),
-                paiement.getUtilisateur().getEmail(),
+                paiement.getLogementId(),
                 paiement.getResidence().getId(),
+                LogementSummaryResponse.fromEntity(paiement.getLogement()),
                 paiement.getNombreMois(),
                 paiement.getMontantMensuel(),
                 paiement.getMontantTotal(),
@@ -82,16 +82,16 @@ public class PaiementResponse {
         return id;
     }
 
-    public Long getUtilisateurId() {
-        return utilisateurId;
-    }
-
-    public String getUtilisateurEmail() {
-        return utilisateurEmail;
+    public Long getLogementId() {
+        return logementId;
     }
 
     public Long getResidenceId() {
         return residenceId;
+    }
+
+    public LogementSummaryResponse getLogement() {
+        return logement;
     }
 
     public Integer getNombreMois() {

@@ -35,6 +35,9 @@ public class Residence {
     @Column(length = 3)
     private String currency;
 
+    @Column(name = "max_occupants_par_logement", nullable = false)
+    private Integer maxOccupantsParLogement;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -90,6 +93,14 @@ public class Residence {
 
     public void setCurrency(final String currency) {
         this.currency = currency;
+    }
+
+    public Integer getMaxOccupantsParLogement() {
+        return maxOccupantsParLogement;
+    }
+
+    public void setMaxOccupantsParLogement(final Integer maxOccupantsParLogement) {
+        this.maxOccupantsParLogement = maxOccupantsParLogement;
     }
 
     public LocalDateTime getCreatedAt() {

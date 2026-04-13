@@ -10,8 +10,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: resiflow
   flyway:
     enabled: true
+    default-schema: resiflow
+    schemas: resiflow
+    create-schemas: true
   mail:
     host: ${SPRING_MAIL_HOST:localhost}
     port: ${SPRING_MAIL_PORT:587}

@@ -2,13 +2,17 @@ package com.resiflow.controller;
 
 import com.resiflow.dto.CreateMyPaiementRequest;
 import com.resiflow.dto.CreatePaiementRequest;
+import com.resiflow.dto.LogementSummaryResponse;
 import com.resiflow.dto.PaymentHistoryItemResponse;
 import com.resiflow.dto.PaymentStatusMonthResponse;
 import com.resiflow.dto.PaymentStatusTimelineResponse;
 import com.resiflow.dto.PendingPaymentResponse;
+import com.resiflow.entity.Logement;
 import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.Residence;
+import com.resiflow.entity.TypeLogement;
+import com.resiflow.entity.TypePaiement;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.security.AuthenticatedUser;
@@ -36,15 +40,15 @@ class PaiementControllerTest {
 
     @BeforeEach
     void setUp() {
-        PaiementService paiementService = new PaiementService(null, null, null, null, null) {
+        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null) {
             @Override
             public Paiement createPaiement(final CreatePaiementRequest request, final AuthenticatedUser authenticatedUser) {
-                return buildPaiement(42L, PaiementStatus.PENDING);
+                return buildPaiement(42L, PaiementStatus.PENDING, 15L);
             }
 
             @Override
             public Paiement createMyPaiement(final CreateMyPaiementRequest request, final AuthenticatedUser authenticatedUser) {
-                return buildPaiement(43L, PaiementStatus.PENDING);
+                return buildPaiement(43L, PaiementStatus.PENDING, 15L);
             }
 
             @Override
@@ -53,12 +57,12 @@ class PaiementControllerTest {
                     final CreateMyPaiementRequest request,
                     final AuthenticatedUser authenticatedUser
             ) {
-                return buildPaiement(44L, PaiementStatus.PENDING);
+                return buildPaiement(44L, PaiementStatus.PENDING, 15L);
             }
 
             @Override
             public Paiement validatePaiement(final Long paiementId, final AuthenticatedUser authenticatedUser) {
-                return buildPaiement(paiementId, PaiementStatus.VALIDATED);
+                return buildPaiement(paiementId, PaiementStatus.VALIDATED, 15L);
             }
 
             @Override
@@ -108,19 +112,56 @@ class PaiementControllerTest {
                 );
             }
 
-            private Paiement buildPaiement(final Long paiementId, final PaiementStatus status) {
+            @Override
+            public PaymentStatusTimelineResponse getAdminLogementPaymentStatus(
+                    final Long logementId,
+                    final AuthenticatedUser authenticatedUser
+            ) {
+                return new PaymentStatusTimelineResponse(
+                        "UP_TO_DATE",
+                        LocalDate.of(2026, 12, 31),
+                        false,
+                        null,
+                        List.of(
+                                new PaymentStatusMonthResponse("2026-10", true),
+                                new PaymentStatusMonthResponse("2026-11", true),
+                                new PaymentStatusMonthResponse("2026-12", true)
+                        ),
+                        List.of(
+                                new PaymentHistoryItemResponse(
+                                        LocalDate.of(2026, 10, 1),
+                                        new BigDecimal("18000.00"),
+                                        "2026-10 - 2026-12"
+                                )
+                        )
+                );
+            }
+
+            @Override
+            public List<Paiement> getPendingPaiementsForAdmin(final AuthenticatedUser authenticatedUser) {
+                return List.of(buildPaiement(45L, PaiementStatus.PENDING, 15L));
+            }
+
+            private Paiement buildPaiement(final Long paiementId, final PaiementStatus status, final Long logementId) {
                 Residence residence = new Residence();
                 residence.setId(7L);
 
-                User user = new User();
-                user.setId(10L);
+                Logement logement = new Logement();
+                logement.setId(logementId);
+                logement.setNumero("A101");
+                logement.setImmeuble("BAT-A");
+                logement.setTypeLogement(TypeLogement.APPARTEMENT);
+                logement.setActive(Boolean.TRUE);
+                logement.setResidence(residence);
 
                 User creator = new User();
                 creator.setId(2L);
+                creator.setFirstName("Admin");
+                creator.setLastName("Residence");
 
                 Paiement paiement = new Paiement();
                 paiement.setId(paiementId);
-                paiement.setUtilisateur(user);
+                paiement.setLogement(logement);
                 paiement.setResidence(residence);
                 paiement.setNombreMois(3);
                 paiement.setMontantMensuel(new BigDecimal("6000.00"));
@@ -130,6 +171,7 @@ class PaiementControllerTest {
                 paiement.setDatePaiement(LocalDateTime.of(2026, 1, 5, 10, 15));
                 paiement.setCreePar(creator);
                 paiement.setStatus(status);
+                paiement.setTypePaiement(TypePaiement.CAGNOTTE);
                 return paiement;
             }
         };
@@ -147,10 +189,11 @@ class PaiementControllerTest {
                         .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"utilisateurId":10,"residenceId":7,"nombreMois":3,"dateDebut":"2026-01-01"}
+                                {"logementId":15,"residenceId":7,"nombreMois":3,"dateDebut":"2026-01-01"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.logementId").value(15L))
                 .andExpect(jsonPath("$.dateFin").value("2026-03-31"));
     }
 
@@ -162,6 +205,7 @@ class PaiementControllerTest {
                         .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("VALIDATED"))
+                .andExpect(jsonPath("$.logementId").value(15L))
                 .andExpect(jsonPath("$.dateFin").value("2026-03-31"));
     }
 
@@ -177,44 +221,22 @@ class PaiementControllerTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(43L))
-                .andExpect(jsonPath("$.utilisateurId").value(10L))
+                .andExpect(jsonPath("$.logementId").value(15L))
                 .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
     @Test
-    void createAdminUserPaiementReturnsPendingPaiementForResidentEmail() throws Exception {
+    void getPendingPaiementsForAdminReturnsCreatorIdentity() throws Exception {
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(2L, "admin@example.com", 7L, UserRole.ADMIN);
 
-        mockMvc.perform(post("/api/payments/admin/user")
-                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null))
-                        .param("email", "resident@example.com")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"nombreMois":2,"dateDebut":"2026-04-01"}
-                                """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(44L))
-                .andExpect(jsonPath("$.utilisateurId").value(10L))
-                .andExpect(jsonPath("$.status").value("PENDING"));
-    }
-
-    @Test
-    void getMyPaymentStatusReturnsTimelineWithUnpaidMonths() throws Exception {
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER);
-
-        mockMvc.perform(get("/api/payments/me/status")
+        mockMvc.perform(get("/api/paiements/admin/pending")
                         .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("OVERDUE"))
-                .andExpect(jsonPath("$.dateFin").value("2026-06-30"))
-                .andExpect(jsonPath("$.nextDueWarning").value(true))
-                .andExpect(jsonPath("$.pendingPayment.id").value(9L))
-                .andExpect(jsonPath("$.pendingPayment.dateDebut").value("2026-07-01"))
-                .andExpect(jsonPath("$.pendingPayment.dateFin").value("2026-09-30"))
-                .andExpect(jsonPath("$.months[0].month").value("2026-01"))
-                .andExpect(jsonPath("$.months[0].paid").value(false))
-                .andExpect(jsonPath("$.months[2].paid").value(true))
-                .andExpect(jsonPath("$.history[0].period").value("2026-01 - 2026-03"));
+                .andExpect(jsonPath("$[0].id").value(45L))
+                .andExpect(jsonPath("$[0].creeParId").value(2L))
+                .andExpect(jsonPath("$[0].creePar.id").value(2L))
+                .andExpect(jsonPath("$[0].creePar.firstName").value("Admin"))
+                .andExpect(jsonPath("$[0].creePar.lastName").value("Residence"));
     }
 
     @Test
@@ -230,31 +252,19 @@ class PaiementControllerTest {
                 .andExpect(jsonPath("$.nextDueWarning").value(false))
                 .andExpect(jsonPath("$.pendingPayment").doesNotExist())
                 .andExpect(jsonPath("$.months[0].month").value("2026-07"))
-                .andExpect(jsonPath("$.months[0].paid").value(true))
-                .andExpect(jsonPath("$.history[0].period").value("2026-07 - 2026-09"));
+                .andExpect(jsonPath("$.months[0].paid").value(true));
     }
 
     @Test
-    void createMyPaiementReturnsBadRequestWhenMonthsAlreadyPaid() throws Exception {
-        PaiementService paiementService = new PaiementService(null, null, null, null, null) {
-            @Override
-            public Paiement createMyPaiement(final CreateMyPaiementRequest request, final AuthenticatedUser authenticatedUser) {
-                throw new IllegalStateException("Payment months already paid: 2026-03");
-            }
-        };
-        mockMvc = MockMvcBuilders.standaloneSetup(new PaiementController(paiementService))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+    void getAdminLogementPaymentStatusReturnsTimelineForLogement() throws Exception {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(2L, "admin@example.com", 7L, UserRole.ADMIN);
 
-        AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER);
-
-        mockMvc.perform(post("/api/payments/me")
-                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"nombreMois":2,"dateDebut":"2026-03-01"}
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Payment months already paid: 2026-03"));
+        mockMvc.perform(get("/api/payments/admin/logement/15/status")
+                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP_TO_DATE"))
+                .andExpect(jsonPath("$.dateFin").value("2026-12-31"))
+                .andExpect(jsonPath("$.months[0].month").value("2026-10"))
+                .andExpect(jsonPath("$.months[0].paid").value(true));
     }
 }

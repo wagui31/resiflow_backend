@@ -2,7 +2,10 @@ package com.resiflow.service;
 
 import com.resiflow.dto.AdminUserActionRequest;
 import com.resiflow.dto.CreateAdminRequest;
+import com.resiflow.entity.Logement;
 import com.resiflow.entity.Residence;
+import com.resiflow.entity.StatutPaiement;
+import com.resiflow.entity.TypeLogement;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
@@ -34,6 +37,8 @@ class UserServiceTest {
                 repositoryProxy(savedUserRef, Optional.empty(), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
                 eventPublisherNoOp()
         );
 
@@ -41,6 +46,7 @@ class UserServiceTest {
         request.setEmail(" admin@example.com ");
         request.setPassword(" secret ");
         request.setResidenceId(7L);
+        request.setLogementId(70L);
 
         User result = userService.createAdmin(request);
 
@@ -48,6 +54,7 @@ class UserServiceTest {
         assertThat(savedUserRef.get().getRole()).isEqualTo(UserRole.ADMIN);
         assertThat(savedUserRef.get().getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(savedUserRef.get().getResidenceId()).isEqualTo(7L);
+        assertThat(savedUserRef.get().getLogementId()).isEqualTo(70L);
         assertThat(passwordEncoder.matches("secret", savedUserRef.get().getPassword())).isTrue();
         assertThat(savedUserRef.get().getCreatedAt()).isNotNull();
         assertThat(savedUserRef.get().getUpdatedAt()).isNotNull();
@@ -62,6 +69,8 @@ class UserServiceTest {
                 repositoryProxy(new AtomicReference<>(), Optional.empty(), List.of(pendingUser), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
                 eventPublisherNoOp()
         );
 
@@ -79,6 +88,8 @@ class UserServiceTest {
                 repositoryProxy(savedUserRef, Optional.of(pendingUser), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
                 eventPublisher
         );
 
@@ -105,6 +116,8 @@ class UserServiceTest {
                 repositoryProxy(new AtomicReference<>(), Optional.of(activeUser), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
                 eventPublisherNoOp()
         );
 
@@ -124,6 +137,8 @@ class UserServiceTest {
                 repositoryProxy(new AtomicReference<>(), Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
                 eventPublisherNoOp()
         );
 
@@ -144,6 +159,8 @@ class UserServiceTest {
                 repositoryProxy(savedUserRef, Optional.of(resident), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
                 eventPublisherNoOp()
         );
 
@@ -164,6 +181,8 @@ class UserServiceTest {
                 repositoryProxy(new AtomicReference<>(), Optional.of(self), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
                 eventPublisherNoOp()
         );
 
@@ -183,6 +202,8 @@ class UserServiceTest {
                 repositoryProxy(new AtomicReference<>(), Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
                 residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
                 eventPublisherNoOp()
         );
 
@@ -214,6 +235,7 @@ class UserServiceTest {
                         savedUser.setEmail(user.getEmail());
                         savedUser.setPassword(user.getPassword());
                         savedUser.setResidence(user.getResidence());
+                        savedUser.setLogement(user.getLogement());
                         savedUser.setRole(user.getRole());
                         savedUser.setStatus(user.getStatus());
                         savedUser.setCreatedAt(user.getCreatedAt());
@@ -268,6 +290,48 @@ class UserServiceTest {
         };
     }
 
+    private LogementService logementServiceStub() {
+        return new LogementService(null, null, null, null) {
+            @Override
+            public Logement getRequiredLogement(final Long logementId) {
+                Logement logement = new Logement();
+                logement.setId(logementId);
+                logement.setTypeLogement(TypeLogement.APPARTEMENT);
+                logement.setNumero("A101");
+                logement.setActive(Boolean.FALSE);
+                Residence residence = new Residence();
+                residence.setId(7L);
+                logement.setResidence(residence);
+                return logement;
+            }
+
+            @Override
+            public void ensureLogementBelongsToResidence(final Long logementId, final Long residenceId) {
+            }
+
+            @Override
+            public void ensureLogementCanAcceptRegistration(final Long logementId) {
+            }
+
+            @Override
+            public Logement activateLogementAfterUserApproval(final Logement logement) {
+                if (logement != null) {
+                    logement.setActive(Boolean.TRUE);
+                }
+                return logement;
+            }
+        };
+    }
+
+    private PaymentStatusService paymentStatusServiceStub() {
+        return new PaymentStatusService(null, null) {
+            @Override
+            public StatutPaiement calculateStatus(final User user) {
+                return StatutPaiement.A_JOUR;
+            }
+        };
+    }
+
     private ApplicationEventPublisher eventPublisherNoOp() {
         return event -> {
         };
@@ -284,6 +348,7 @@ class UserServiceTest {
         user.setId(id);
         user.setEmail(email);
         user.setResidenceId(residenceId);
+        user.setLogement(logementServiceStub().getRequiredLogement(70L));
         user.setRole(role);
         user.setStatus(status);
         LocalDateTime now = LocalDateTime.now().minusDays(1);
