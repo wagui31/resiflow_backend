@@ -110,6 +110,10 @@ public class PaiementAdminPendingResponse {
         return montantTotal;
     }
 
+    public BigDecimal getMontant() {
+        return montantTotal;
+    }
+
     public LocalDate getDateDebut() {
         return dateDebut;
     }

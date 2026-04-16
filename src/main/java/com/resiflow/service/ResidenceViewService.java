@@ -207,6 +207,7 @@ public class ResidenceViewService {
                     "INACTIVE",
                     lastValidatedPaiement == null ? null : lastValidatedPaiement.getDateFin(),
                     false,
+                    List.of(),
                     toPendingPaymentSummary(pendingPaiement)
             );
         }
@@ -219,6 +220,7 @@ public class ResidenceViewService {
                 paymentStatusService.calculateStatus(logement).name(),
                 dateFin,
                 nextDueWarning,
+                paymentStatusService.getOverdueMonths(logement),
                 toPendingPaymentSummary(pendingPaiement)
         );
     }
@@ -278,17 +280,17 @@ public class ResidenceViewService {
     private Comparator<ResidenceViewLogementCardResponse> logementCardComparator(final Long currentLogementId) {
         return Comparator
                 .comparingInt((ResidenceViewLogementCardResponse card) -> logementRank(card, currentLogementId))
-                .thenComparing(card -> normalize(card.getLogement().getImmeuble()))
-                .thenComparing(card -> normalize(card.getLogement().getNumero()))
-                .thenComparing(card -> normalize(card.getLogement().getCodeInterne()));
+                .thenComparing(card -> normalize(card.getLogement().getImmeuble()), nullSafeStringComparator())
+                .thenComparing(card -> normalize(card.getLogement().getNumero()), nullSafeStringComparator())
+                .thenComparing(card -> normalize(card.getLogement().getCodeInterne()), nullSafeStringComparator());
     }
 
     private Comparator<ResidenceViewPendingLogementCardResponse> pendingLogementCardComparator(final Long currentLogementId) {
         return Comparator
                 .comparingInt((ResidenceViewPendingLogementCardResponse card) -> pendingLogementRank(card, currentLogementId))
-                .thenComparing(card -> normalize(card.getLogement().getImmeuble()))
-                .thenComparing(card -> normalize(card.getLogement().getNumero()))
-                .thenComparing(card -> normalize(card.getLogement().getCodeInterne()));
+                .thenComparing(card -> normalize(card.getLogement().getImmeuble()), nullSafeStringComparator())
+                .thenComparing(card -> normalize(card.getLogement().getNumero()), nullSafeStringComparator())
+                .thenComparing(card -> normalize(card.getLogement().getCodeInterne()), nullSafeStringComparator());
     }
 
     private int logementRank(final ResidenceViewLogementCardResponse card, final Long currentLogementId) {
@@ -319,9 +321,9 @@ public class ResidenceViewService {
     private Comparator<User> residentComparator() {
         return Comparator
                 .comparingInt((User user) -> user.getRole() == UserRole.ADMIN ? 0 : 1)
-                .thenComparing(user -> normalize(user.getLastName()))
-                .thenComparing(user -> normalize(user.getFirstName()))
-                .thenComparing(user -> normalize(user.getEmail()));
+                .thenComparing(user -> normalize(user.getLastName()), nullSafeStringComparator())
+                .thenComparing(user -> normalize(user.getFirstName()), nullSafeStringComparator())
+                .thenComparing(user -> normalize(user.getEmail()), nullSafeStringComparator());
     }
 
     private long countByRole(final List<User> activeResidents, final List<User> pendingResidents, final UserRole role) {
@@ -358,5 +360,9 @@ public class ResidenceViewService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
+    }
+
+    private Comparator<String> nullSafeStringComparator() {
+        return Comparator.nullsLast(String::compareTo);
     }
 }

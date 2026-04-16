@@ -47,6 +47,21 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
             @Param("typePaiement") TypePaiement typePaiement
     );
 
+    @Query("""
+            select p
+            from Paiement p
+            join fetch p.logement l
+            join fetch p.residence r
+            join fetch p.creePar c
+            where p.status = :status
+              and p.typePaiement = :typePaiement
+            order by p.datePaiement desc
+            """)
+    List<Paiement> findAllAdminPendingWithDetails(
+            @Param("status") PaiementStatus status,
+            @Param("typePaiement") TypePaiement typePaiement
+    );
+
     Optional<Paiement> findFirstByLogement_IdAndStatusOrderByDateFinDescDatePaiementDesc(Long logementId, PaiementStatus status);
 
     Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(

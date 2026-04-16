@@ -148,8 +148,28 @@ public class PaiementService {
     }
 
     @Transactional
+    public Paiement validateSharedExpensePaiement(final Long paiementId, final AuthenticatedUser authenticatedUser) {
+        Paiement paiement = getSharedExpensePaiementForAdminAction(paiementId, authenticatedUser);
+        if (paiement.getStatus() != PaiementStatus.PENDING) {
+            throw new IllegalStateException("Only pending paiements can be validated");
+        }
+        paiement.setStatus(PaiementStatus.VALIDATED);
+        return paiementRepository.save(paiement);
+    }
+
+    @Transactional
     public Paiement rejectPaiement(final Long paiementId, final AuthenticatedUser authenticatedUser) {
         Paiement paiement = getPaiementForAdminAction(paiementId, authenticatedUser);
+        if (paiement.getStatus() != PaiementStatus.PENDING) {
+            throw new IllegalStateException("Only pending paiements can be rejected");
+        }
+        paiement.setStatus(PaiementStatus.REJECTED);
+        return paiementRepository.save(paiement);
+    }
+
+    @Transactional
+    public Paiement rejectSharedExpensePaiement(final Long paiementId, final AuthenticatedUser authenticatedUser) {
+        Paiement paiement = getSharedExpensePaiementForAdminAction(paiementId, authenticatedUser);
         if (paiement.getStatus() != PaiementStatus.PENDING) {
             throw new IllegalStateException("Only pending paiements can be rejected");
         }
@@ -212,6 +232,23 @@ public class PaiementService {
                 authenticatedUser.residenceId(),
                 PaiementStatus.PENDING,
                 TypePaiement.CAGNOTTE
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<Paiement> getPendingSharedExpensePaiementsForAdmin(final AuthenticatedUser authenticatedUser) {
+        ensureAdmin(authenticatedUser);
+        if (authenticatedUser.role() == UserRole.SUPER_ADMIN) {
+            return paiementRepository.findAllAdminPendingWithDetails(
+                    PaiementStatus.PENDING,
+                    TypePaiement.DEPENSE_PARTAGE
+            );
+        }
+        residenceAccessService.getResidenceForAdmin(authenticatedUser.residenceId(), authenticatedUser);
+        return paiementRepository.findAllAdminPendingWithDetails(
+                authenticatedUser.residenceId(),
+                PaiementStatus.PENDING,
+                TypePaiement.DEPENSE_PARTAGE
         );
     }
 
@@ -363,6 +400,14 @@ public class PaiementService {
         Paiement paiement = paiementRepository.findById(paiementId)
                 .orElseThrow(() -> new NoSuchElementException("Paiement not found: " + paiementId));
         residenceAccessService.ensureAdminAccessToResidence(authenticatedUser, paiement.getResidence().getId());
+        return paiement;
+    }
+
+    private Paiement getSharedExpensePaiementForAdminAction(final Long paiementId, final AuthenticatedUser authenticatedUser) {
+        Paiement paiement = getPaiementForAdminAction(paiementId, authenticatedUser);
+        if (paiement.getTypePaiement() != TypePaiement.DEPENSE_PARTAGE) {
+            throw new IllegalStateException("Paiement must be a shared expense paiement");
+        }
         return paiement;
     }
 

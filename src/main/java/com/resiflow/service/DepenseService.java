@@ -86,7 +86,7 @@ public class DepenseService {
         validateCreateRequest(request);
 
         Residence residence = residenceAccessService.getResidenceForAdmin(request.getResidenceId(), authenticatedUser);
-        CategorieDepense categorieDepense = categorieDepenseService.getRequiredCategorieDepense(request.getCategorieId());
+        CategorieDepense categorieDepense = resolveCategorieDepense(request);
         User actor = residenceAccessService.getRequiredActor(authenticatedUser);
 
         Depense depense = new Depense();
@@ -245,7 +245,7 @@ public class DepenseService {
         if (request.getResidenceId() == null) {
             throw new IllegalArgumentException("Residence ID must not be null");
         }
-        if (request.getCategorieId() == null) {
+        if (resolveTypeDepense(request) == TypeDepense.CAGNOTTE && request.getCategorieId() == null) {
             throw new IllegalArgumentException("Categorie depense ID must not be null");
         }
         if (request.getMontant() == null || request.getMontant().signum() <= 0) {
@@ -263,6 +263,13 @@ public class DepenseService {
 
     private TypeDepense resolveTypeDepense(final CreateDepenseRequest request) {
         return request.getTypeDepense() == null ? TypeDepense.CAGNOTTE : request.getTypeDepense();
+    }
+
+    private CategorieDepense resolveCategorieDepense(final CreateDepenseRequest request) {
+        if (request.getCategorieId() == null) {
+            return null;
+        }
+        return categorieDepenseService.getRequiredCategorieDepense(request.getCategorieId());
     }
 
     private BigDecimal resolveMontantParPersonne(final CreateDepenseRequest request, final Residence residence) {

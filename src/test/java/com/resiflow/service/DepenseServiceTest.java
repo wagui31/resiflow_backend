@@ -119,6 +119,54 @@ class DepenseServiceTest {
     }
 
     @Test
+    void createDepenseAllowsPartageWithoutCategorieId() {
+        DepenseRepository depenseRepository = mock(DepenseRepository.class);
+        CategorieDepenseService categorieDepenseService = mock(CategorieDepenseService.class);
+        ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
+        TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        PaiementRepository paiementRepository = mock(PaiementRepository.class);
+        LogementRepository logementRepository = mock(LogementRepository.class);
+
+        DepenseService depenseService = new DepenseService(
+                depenseRepository,
+                categorieDepenseService,
+                residenceAccessService,
+                transactionCagnotteService,
+                userRepository,
+                paiementRepository,
+                logementRepository
+        );
+
+        CreateDepenseRequest request = new CreateDepenseRequest();
+        request.setResidenceId(7L);
+        request.setMontant(new BigDecimal("300.00"));
+        request.setDescription("Frais partages");
+        request.setTypeDepense(TypeDepense.PARTAGE);
+        request.setMontantParPersonne(new BigDecimal("100.00"));
+
+        Residence residence = new Residence();
+        residence.setId(7L);
+
+        User actor = new User();
+        actor.setId(2L);
+
+        when(residenceAccessService.getResidenceForAdmin(eq(7L), any(AuthenticatedUser.class))).thenReturn(residence);
+        when(residenceAccessService.getRequiredActor(any())).thenReturn(actor);
+        when(depenseRepository.save(any(Depense.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Depense result = depenseService.createDepense(
+                request,
+                new AuthenticatedUser(2L, "admin@example.com", 7L, UserRole.ADMIN)
+        );
+
+        assertThat(result.getCategorie()).isNull();
+        assertThat(result.getTypeDepense()).isEqualTo(TypeDepense.PARTAGE);
+        assertThat(result.getMontantParPersonne()).isEqualByComparingTo("100.00");
+        verify(categorieDepenseService, never()).getRequiredCategorieDepense(any());
+    }
+
+    @Test
     void createDepenseComputesSharedAmountPerActiveLogement() {
         DepenseRepository depenseRepository = mock(DepenseRepository.class);
         CategorieDepenseService categorieDepenseService = mock(CategorieDepenseService.class);

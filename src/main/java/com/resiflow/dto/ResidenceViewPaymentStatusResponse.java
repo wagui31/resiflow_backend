@@ -3,6 +3,7 @@ package com.resiflow.dto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public class ResidenceViewPaymentStatusResponse {
 
@@ -10,17 +11,20 @@ public class ResidenceViewPaymentStatusResponse {
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private final LocalDate dateFin;
     private final boolean nextDueWarning;
+    private final List<String> overdueMonths;
     private final PendingPaymentSummary pendingPayment;
 
     public ResidenceViewPaymentStatusResponse(
             final String status,
             final LocalDate dateFin,
             final boolean nextDueWarning,
+            final List<String> overdueMonths,
             final PendingPaymentSummary pendingPayment
     ) {
         this.status = status;
         this.dateFin = dateFin;
         this.nextDueWarning = nextDueWarning;
+        this.overdueMonths = overdueMonths;
         this.pendingPayment = pendingPayment;
     }
 
@@ -34,6 +38,10 @@ public class ResidenceViewPaymentStatusResponse {
 
     public boolean isNextDueWarning() {
         return nextDueWarning;
+    }
+
+    public List<String> getOverdueMonths() {
+        return overdueMonths;
     }
 
     public PendingPaymentSummary getPendingPayment() {

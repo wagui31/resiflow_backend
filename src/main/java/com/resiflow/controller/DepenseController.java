@@ -5,6 +5,7 @@ import com.resiflow.dto.CreateAdminDepensePartagePaiementRequest;
 import com.resiflow.dto.CreateDepensePartagePaiementRequest;
 import com.resiflow.dto.DepenseContributionLogementResponse;
 import com.resiflow.dto.DepenseResponse;
+import com.resiflow.dto.PaiementAdminPendingResponse;
 import com.resiflow.dto.PaiementResponse;
 import com.resiflow.dto.SharedExpenseSummaryResponse;
 import com.resiflow.security.AuthenticatedUser;
@@ -18,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -122,6 +124,21 @@ public class DepenseController {
                 .toList());
     }
 
+    @GetMapping({
+            "/paiements/admin/pending",
+            "/shared-payments/admin/pending",
+            "/admin/paiements/pending"
+    })
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<List<PaiementAdminPendingResponse>> getPendingSharedExpensePaiementsForAdmin(
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(paiementService.getPendingSharedExpensePaiementsForAdmin(authenticatedUser).stream()
+                .map(PaiementAdminPendingResponse::fromEntity)
+                .toList());
+    }
+
     @PostMapping("/{id}/paiements/me")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<PaiementResponse> createMyDepensePartagePaiement(
@@ -148,5 +165,35 @@ public class DepenseController {
                 .body(PaiementResponse.fromEntity(
                         paiementService.createAdminDepensePartagePaiement(id, request, authenticatedUser)
                 ));
+    }
+
+    @PutMapping({
+            "/paiements/{paiementId}/validate",
+            "/shared-payments/{paiementId}/validate"
+    })
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<PaiementResponse> validateSharedExpensePaiement(
+            @PathVariable final Long paiementId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(PaiementResponse.fromEntity(
+                paiementService.validateSharedExpensePaiement(paiementId, authenticatedUser)
+        ));
+    }
+
+    @PutMapping({
+            "/paiements/{paiementId}/reject",
+            "/shared-payments/{paiementId}/reject"
+    })
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<PaiementResponse> rejectSharedExpensePaiement(
+            @PathVariable final Long paiementId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(PaiementResponse.fromEntity(
+                paiementService.rejectSharedExpensePaiement(paiementId, authenticatedUser)
+        ));
     }
 }

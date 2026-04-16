@@ -149,6 +149,7 @@ class ResidenceControllerTest {
                                                 "A_JOUR",
                                                 LocalDate.of(2026, 5, 31),
                                                 false,
+                                                List.of(),
                                                 null
                                         ),
                                         List.of(
@@ -264,6 +265,7 @@ class ResidenceControllerTest {
                 .andExpect(jsonPath("$.overview.cagnotteStatus").value("POSITIVE"))
                 .andExpect(jsonPath("$.logements[0].logement.numero").value("A101"))
                 .andExpect(jsonPath("$.logements[0].payment.status").value("A_JOUR"))
+                .andExpect(jsonPath("$.logements[0].payment.overdueMonths").isArray())
                 .andExpect(jsonPath("$.logements[0].residents[0].role").value("ADMIN"))
                 .andExpect(jsonPath("$.pendingLogements[0].logement.numero").value("A102"))
                 .andExpect(jsonPath("$.pendingLogements[0].existingResidents[0].email").value("sara@example.com"))

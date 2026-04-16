@@ -11,6 +11,7 @@ import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.repository.PaiementRepository;
 import com.resiflow.repository.PaymentMonthRepository;
+import java.util.ArrayList;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -69,16 +70,8 @@ public class PaymentStatusService {
         }
 
         LocalDate today = LocalDate.now();
-        List<PaymentMonth> paymentMonths = paymentMonthRepository.findAllByLogement_IdOrderByMonthAsc(logement.getId());
-        YearMonth currentMonth = YearMonth.from(today);
-        for (YearMonth cursor = YearMonth.from(startDate); !cursor.isAfter(currentMonth); cursor = cursor.plusMonths(1)) {
-            String month = cursor.format(MONTH_FORMATTER);
-            boolean paid = paymentMonths.stream()
-                    .anyMatch(paymentMonth -> paymentMonth.getMonth().equals(month)
-                            && paymentMonth.getStatus() == PaymentMonthStatus.PAID);
-            if (!paid && cursor.atEndOfMonth().isBefore(today)) {
-                return StatutPaiement.EN_RETARD;
-            }
+        if (!getOverdueMonths(logement, startDate, today).isEmpty()) {
+            return StatutPaiement.EN_RETARD;
         }
 
         Paiement lastPayment = paiementRepository
@@ -91,6 +84,33 @@ public class PaymentStatusService {
         if (lastPayment == null) {
             return StatutPaiement.EN_RETARD;
         }
-        return LocalDate.now().isAfter(lastPayment.getDateFin()) ? StatutPaiement.EN_RETARD : StatutPaiement.A_JOUR;
+        return today.isAfter(lastPayment.getDateFin()) ? StatutPaiement.EN_RETARD : StatutPaiement.A_JOUR;
+    }
+
+    public List<String> getOverdueMonths(final Logement logement) {
+        LocalDate startDate = logement == null || logement.getDateActivation() == null
+                ? null
+                : logement.getDateActivation().toLocalDate();
+        return getOverdueMonths(logement, startDate, LocalDate.now());
+    }
+
+    private List<String> getOverdueMonths(final Logement logement, final LocalDate startDate, final LocalDate today) {
+        if (logement == null || !Boolean.TRUE.equals(logement.getActive()) || startDate == null) {
+            return List.of();
+        }
+
+        List<String> overdueMonths = new ArrayList<>();
+        List<PaymentMonth> paymentMonths = paymentMonthRepository.findAllByLogement_IdOrderByMonthAsc(logement.getId());
+        YearMonth currentMonth = YearMonth.from(today);
+        for (YearMonth cursor = YearMonth.from(startDate); !cursor.isAfter(currentMonth); cursor = cursor.plusMonths(1)) {
+            String month = cursor.format(MONTH_FORMATTER);
+            boolean paid = paymentMonths.stream()
+                    .anyMatch(paymentMonth -> paymentMonth.getMonth().equals(month)
+                            && paymentMonth.getStatus() == PaymentMonthStatus.PAID);
+            if (!paid && (cursor.equals(currentMonth) || cursor.atEndOfMonth().isBefore(today))) {
+                overdueMonths.add(month);
+            }
+        }
+        return overdueMonths;
     }
 }
