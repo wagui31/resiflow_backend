@@ -66,6 +66,9 @@ public class Paiement {
     @Column(name = "status", nullable = false)
     private PaiementStatus status;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted;
+
     public Long getId() {
         return id;
     }
@@ -174,6 +177,14 @@ public class Paiement {
         this.status = status;
     }
 
+    public boolean isDeleted() {
+        return isDeleted;
+    }
+
+    public void setDeleted(final boolean deleted) {
+        isDeleted = deleted;
+    }
+
     @PrePersist
     public void prePersist() {
         if (datePaiement == null) {
@@ -185,5 +196,6 @@ public class Paiement {
         if (typePaiement == null) {
             typePaiement = TypePaiement.CAGNOTTE;
         }
+        isDeleted = false;
     }
 }

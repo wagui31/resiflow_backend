@@ -75,7 +75,7 @@ public class PaymentStatusService {
         }
 
         Paiement lastPayment = paiementRepository
-                .findFirstByLogement_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+                .findFirstByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDateFinDescDatePaiementDesc(
                         logement.getId(),
                         PaiementStatus.VALIDATED,
                         TypePaiement.CAGNOTTE

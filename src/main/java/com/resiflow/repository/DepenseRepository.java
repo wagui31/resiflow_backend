@@ -8,11 +8,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DepenseRepository extends JpaRepository<Depense, Long> {
 
-    List<Depense> findAllByResidence_IdOrderByDateCreationDesc(Long residenceId);
+    List<Depense> findAllByResidence_IdAndIsDeletedFalseOrderByDateCreationDesc(Long residenceId);
 
-    List<Depense> findAllByResidence_IdAndTypeDepenseAndStatutOrderByDateCreationDesc(
+    List<Depense> findAllByResidence_IdAndTypeDepenseAndStatutAndIsDeletedFalseOrderByDateCreationDesc(
             Long residenceId,
             TypeDepense typeDepense,
             StatutDepense statut
     );
+
+    java.util.Optional<Depense> findByIdAndIsDeletedFalse(Long depenseId);
 }

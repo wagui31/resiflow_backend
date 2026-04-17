@@ -179,19 +179,20 @@ public class PaiementService {
 
     @Transactional
     public void deletePendingPaiement(final Long paiementId, final AuthenticatedUser authenticatedUser) {
-        Paiement paiement = paiementRepository.findById(paiementId)
+        Paiement paiement = paiementRepository.findByIdAndIsDeletedFalse(paiementId)
                 .orElseThrow(() -> new NoSuchElementException("Paiement not found: " + paiementId));
         ensureDeletePendingAllowed(paiement, authenticatedUser);
         if (paiement.getStatus() != PaiementStatus.PENDING) {
             throw new IllegalStateException("Only pending paiements can be deleted");
         }
-        paiementRepository.delete(paiement);
+        paiement.setDeleted(true);
+        paiementRepository.save(paiement);
     }
 
     @Transactional(readOnly = true)
     public List<Paiement> getPaiementsByUtilisateur(final Long userId, final AuthenticatedUser authenticatedUser) {
         User user = residenceAccessService.getUserForRead(userId, authenticatedUser);
-        return paiementRepository.findAllByLogement_IdOrderByDatePaiementDesc(user.getLogementId()).stream()
+        return paiementRepository.findAllByLogement_IdAndIsDeletedFalseOrderByDatePaiementDesc(user.getLogementId()).stream()
                 .filter(paiement -> paiement.getTypePaiement() == TypePaiement.CAGNOTTE)
                 .toList();
     }
@@ -214,14 +215,17 @@ public class PaiementService {
     @Transactional(readOnly = true)
     public List<Paiement> getPaiementsByResidence(final Long residenceId, final AuthenticatedUser authenticatedUser) {
         residenceAccessService.getResidenceForAdmin(residenceId, authenticatedUser);
-        return paiementRepository.findAllByResidence_IdAndTypePaiementOrderByDatePaiementDesc(residenceId, TypePaiement.CAGNOTTE);
+        return paiementRepository.findAllByResidence_IdAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
+                residenceId,
+                TypePaiement.CAGNOTTE
+        );
     }
 
     @Transactional(readOnly = true)
     public List<Paiement> getPaiementsByDepense(final Long depenseId, final AuthenticatedUser authenticatedUser) {
         Depense depense = requireSharedDepense(depenseId);
         residenceAccessService.ensureMemberAccessToResidence(authenticatedUser, depense.getResidence().getId());
-        return paiementRepository.findAllByDepense_IdOrderByDatePaiementDesc(depenseId);
+        return paiementRepository.findAllByDepense_IdAndIsDeletedFalseOrderByDatePaiementDesc(depenseId);
     }
 
     @Transactional(readOnly = true)
@@ -320,14 +324,14 @@ public class PaiementService {
         }
 
         Paiement lastValidatedPaiement = paiementRepository
-                .findFirstByLogement_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+                .findFirstByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDateFinDescDatePaiementDesc(
                         logement.getId(),
                         PaiementStatus.VALIDATED,
                         TypePaiement.CAGNOTTE
                 )
                 .orElse(null);
         Paiement pendingPaiement = paiementRepository
-                .findFirstByLogement_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+                .findFirstByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
                         logement.getId(),
                         PaiementStatus.PENDING,
                         TypePaiement.CAGNOTTE
@@ -349,7 +353,10 @@ public class PaiementService {
                         pendingPaiement.getDateFin()
                 ),
                 months,
-                paiementRepository.findAllByLogement_IdAndStatusOrderByDatePaiementDesc(logement.getId(), PaiementStatus.VALIDATED)
+                paiementRepository.findAllByLogement_IdAndStatusAndIsDeletedFalseOrderByDatePaiementDesc(
+                                logement.getId(),
+                                PaiementStatus.VALIDATED
+                        )
                         .stream()
                         .filter(paiement -> paiement.getTypePaiement() == TypePaiement.CAGNOTTE)
                         .map(this::toHistoryItem)
@@ -397,7 +404,7 @@ public class PaiementService {
     }
 
     private Paiement getPaiementForAdminAction(final Long paiementId, final AuthenticatedUser authenticatedUser) {
-        Paiement paiement = paiementRepository.findById(paiementId)
+        Paiement paiement = paiementRepository.findByIdAndIsDeletedFalse(paiementId)
                 .orElseThrow(() -> new NoSuchElementException("Paiement not found: " + paiementId));
         residenceAccessService.ensureAdminAccessToResidence(authenticatedUser, paiement.getResidence().getId());
         return paiement;
@@ -485,7 +492,7 @@ public class PaiementService {
 
     private ResidenceImpayeResponse toResidenceImpayeResponse(final Logement logement, final LocalDate today) {
         Paiement lastPayment = paiementRepository
-                .findFirstByLogement_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+                .findFirstByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDateFinDescDatePaiementDesc(
                         logement.getId(),
                         PaiementStatus.VALIDATED,
                         TypePaiement.CAGNOTTE
@@ -519,7 +526,7 @@ public class PaiementService {
         if (!residence.getId().equals(logement.getResidenceId())) {
             throw new IllegalArgumentException("Logement does not belong to the selected residence");
         }
-        if (paiementRepository.existsByLogement_IdAndStatusAndTypePaiement(
+        if (paiementRepository.existsByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalse(
                 logement.getId(),
                 PaiementStatus.PENDING,
                 TypePaiement.CAGNOTTE
@@ -541,6 +548,7 @@ public class PaiementService {
         paiement.setStatus(PaiementStatus.PENDING);
         paiement.setTypePaiement(TypePaiement.CAGNOTTE);
         paiement.setDepense(null);
+        paiement.setDeleted(false);
         return paiementRepository.save(paiement);
     }
 
@@ -568,6 +576,7 @@ public class PaiementService {
         paiement.setStatus(autoValidate ? PaiementStatus.VALIDATED : PaiementStatus.PENDING);
         paiement.setTypePaiement(TypePaiement.DEPENSE_PARTAGE);
         paiement.setDepense(depense);
+        paiement.setDeleted(false);
         return paiementRepository.save(paiement);
     }
 
@@ -589,7 +598,7 @@ public class PaiementService {
     }
 
     private void ensureNoPendingSharedPayment(final Long logementId, final Long depenseId) {
-        if (paiementRepository.existsByLogement_IdAndStatusAndTypePaiementAndDepense_Id(
+        if (paiementRepository.existsByLogement_IdAndStatusAndTypePaiementAndDepense_IdAndIsDeletedFalse(
                 logementId,
                 PaiementStatus.PENDING,
                 TypePaiement.DEPENSE_PARTAGE,

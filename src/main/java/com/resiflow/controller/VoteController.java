@@ -4,6 +4,7 @@ import com.resiflow.dto.DepenseResponse;
 import com.resiflow.dto.CreateVoteRequest;
 import com.resiflow.dto.VoteActionRequest;
 import com.resiflow.dto.VoteDetailsResponse;
+import com.resiflow.dto.VoteOverviewResponse;
 import com.resiflow.dto.VoteResponse;
 import com.resiflow.dto.VoteResultResponse;
 import com.resiflow.security.AuthenticatedUser;
@@ -54,6 +55,16 @@ public class VoteController {
                 .toList());
     }
 
+    @GetMapping("/residence/{residenceId}/overview")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<VoteOverviewResponse>> getVoteOverviewsByResidence(
+            @PathVariable final Long residenceId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(voteService.getVoteOverviewsByResidence(residenceId, authenticatedUser));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<VoteResponse> getVote(
@@ -62,6 +73,16 @@ public class VoteController {
     ) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         return ResponseEntity.ok(VoteResponse.fromEntity(voteService.getVote(id, authenticatedUser)));
+    }
+
+    @GetMapping("/{id}/overview")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<VoteOverviewResponse> getVoteOverview(
+            @PathVariable final Long id,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(voteService.getVoteOverview(id, authenticatedUser));
     }
 
     @PostMapping("/{id}/cloturer")
@@ -129,7 +150,7 @@ public class VoteController {
     }
 
     @GetMapping("/{id}/details")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<VoteDetailsResponse> getVoteDetails(
             @PathVariable final Long id,
             final Authentication authentication

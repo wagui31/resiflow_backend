@@ -62,6 +62,9 @@ public class Depense {
     @Column(name = "date_validation")
     private LocalDateTime dateValidation;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted;
+
     public Long getId() {
         return id;
     }
@@ -158,10 +161,19 @@ public class Depense {
         this.dateValidation = dateValidation;
     }
 
+    public boolean isDeleted() {
+        return isDeleted;
+    }
+
+    public void setDeleted(final boolean deleted) {
+        isDeleted = deleted;
+    }
+
     @PrePersist
     public void prePersist() {
         if (dateCreation == null) {
             dateCreation = LocalDateTime.now();
         }
+        isDeleted = false;
     }
 }

@@ -32,7 +32,7 @@ class PaymentStatusServiceTest {
         Paiement validatedPaiement = buildValidatedPaiement(logement, today.withDayOfMonth(1), today.plusMonths(2).withDayOfMonth(1).minusDays(1));
         PaymentMonth oldPaidMonth = buildPaymentMonth(logement, today.minusMonths(4).withDayOfMonth(1), PaymentMonthStatus.PAID);
 
-        when(paiementRepository.findFirstByLogement_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+        when(paiementRepository.findFirstByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDateFinDescDatePaiementDesc(
                 logement.getId(),
                 PaiementStatus.VALIDATED,
                 TypePaiement.CAGNOTTE
@@ -54,7 +54,7 @@ class PaymentStatusServiceTest {
         Logement logement = buildActiveLogement(15L, today.minusMonths(3).atStartOfDay());
         Paiement expiredPaiement = buildValidatedPaiement(logement, today.minusMonths(2).withDayOfMonth(1), today.minusMonths(1).withDayOfMonth(1).minusDays(1));
 
-        when(paiementRepository.findFirstByLogement_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+        when(paiementRepository.findFirstByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDateFinDescDatePaiementDesc(
                 logement.getId(),
                 PaiementStatus.VALIDATED,
                 TypePaiement.CAGNOTTE

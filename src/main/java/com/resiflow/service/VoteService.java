@@ -4,8 +4,11 @@ import com.resiflow.dto.DepenseResponse;
 import com.resiflow.dto.CreateVoteRequest;
 import com.resiflow.dto.VoteActionRequest;
 import com.resiflow.dto.VoteDetailsResponse;
+import com.resiflow.dto.VoteHousingParticipationResponse;
+import com.resiflow.dto.VoteOverviewResponse;
 import com.resiflow.dto.VoteResultResponse;
 import com.resiflow.dto.VoteUtilisateurDetailResponse;
+import com.resiflow.entity.Logement;
 import com.resiflow.entity.Depense;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.User;
@@ -13,13 +16,22 @@ import com.resiflow.entity.Vote;
 import com.resiflow.entity.VoteChoix;
 import com.resiflow.entity.VoteStatut;
 import com.resiflow.entity.VoteUtilisateur;
+import com.resiflow.entity.UserRole;
+import com.resiflow.entity.UserStatus;
+import com.resiflow.repository.UserRepository;
 import com.resiflow.repository.VoteRepository;
 import com.resiflow.repository.VoteUtilisateurRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -32,17 +44,20 @@ public class VoteService {
 
     private final VoteRepository voteRepository;
     private final VoteUtilisateurRepository voteUtilisateurRepository;
+    private final UserRepository userRepository;
     private final ResidenceAccessService residenceAccessService;
     private final DepenseService depenseService;
 
     public VoteService(
             final VoteRepository voteRepository,
             final VoteUtilisateurRepository voteUtilisateurRepository,
+            final UserRepository userRepository,
             final ResidenceAccessService residenceAccessService,
             final DepenseService depenseService
     ) {
         this.voteRepository = voteRepository;
         this.voteUtilisateurRepository = voteUtilisateurRepository;
+        this.userRepository = userRepository;
         this.residenceAccessService = residenceAccessService;
         this.depenseService = depenseService;
     }
@@ -197,7 +212,7 @@ public class VoteService {
     @Transactional(readOnly = true)
     public VoteDetailsResponse getVoteDetails(final Long voteId, final AuthenticatedUser authenticatedUser) {
         Vote vote = getRequiredVote(voteId);
-        ensureMemberAccess(vote, authenticatedUser);
+        ensureAdminAccess(vote, authenticatedUser);
 
         List<VoteUtilisateurDetailResponse> votesUtilisateurs = voteUtilisateurRepository
                 .findAllByVote_IdOrderByDateVoteAsc(voteId)
@@ -235,6 +250,36 @@ public class VoteService {
         vote.setDepense(depense);
         voteRepository.save(vote);
         return DepenseResponse.fromEntity(depense);
+    }
+
+    @Transactional(readOnly = true)
+    public List<VoteOverviewResponse> getVoteOverviewsByResidence(
+            final Long residenceId,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
+
+        List<Vote> votes = voteRepository.findAllByResidence_IdOrderByDateDebutDesc(residenceId);
+        if (votes.isEmpty()) {
+            return List.of();
+        }
+
+        List<User> eligibleUsers = getEligibleUsersForResidence(residenceId);
+        Map<Long, List<VoteUtilisateur>> voteRecordsByVoteId = groupVoteRecordsByVoteId(votes);
+
+        return votes.stream()
+                .map(vote -> buildOverview(vote, eligibleUsers, voteRecordsByVoteId.getOrDefault(vote.getId(), List.of()), authenticatedUser))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public VoteOverviewResponse getVoteOverview(final Long voteId, final AuthenticatedUser authenticatedUser) {
+        Vote vote = getRequiredVote(voteId);
+        ensureMemberAccess(vote, authenticatedUser);
+
+        List<User> eligibleUsers = getEligibleUsersForResidence(vote.getResidence().getId());
+        List<VoteUtilisateur> voteRecords = voteUtilisateurRepository.findAllByVote_IdOrderByDateVoteAsc(voteId);
+        return buildOverview(vote, eligibleUsers, voteRecords, authenticatedUser);
     }
 
     @Transactional
@@ -338,5 +383,186 @@ public class VoteService {
 
     private String normalizeCommentaire(final String commentaire) {
         return isBlank(commentaire) ? null : commentaire.trim();
+    }
+
+    private VoteOverviewResponse buildOverview(
+            final Vote vote,
+            final List<User> eligibleUsers,
+            final List<VoteUtilisateur> voteRecords,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        long totalPour = countChoice(voteRecords, VoteChoix.POUR);
+        long totalContre = countChoice(voteRecords, VoteChoix.CONTRE);
+        long totalNeutre = countChoice(voteRecords, VoteChoix.NEUTRE);
+        long totalVotants = voteRecords.size();
+        VoteStatut effectiveStatut = resolveEffectiveStatut(vote, totalPour, totalContre);
+        boolean isOpen = isVoteOpen(vote);
+
+        Map<Long, List<User>> eligibleUsersByLogement = new HashMap<>();
+        for (User eligibleUser : eligibleUsers) {
+            if (eligibleUser.getLogementId() == null) {
+                continue;
+            }
+            eligibleUsersByLogement.computeIfAbsent(eligibleUser.getLogementId(), ignored -> new java.util.ArrayList<>())
+                    .add(eligibleUser);
+        }
+
+        Map<Long, Long> votedByLogement = new HashMap<>();
+        Map<Long, VoteUtilisateur> userVoteByUserId = new HashMap<>();
+        for (VoteUtilisateur voteRecord : voteRecords) {
+            Long userId = voteRecord.getUtilisateur().getId();
+            userVoteByUserId.put(userId, voteRecord);
+            Long logementId = voteRecord.getUtilisateur().getLogementId();
+            if (logementId != null) {
+                votedByLogement.merge(logementId, 1L, Long::sum);
+            }
+        }
+
+        VoteUtilisateur currentUserVote = authenticatedUser == null || authenticatedUser.userId() == null
+                ? null
+                : userVoteByUserId.get(authenticatedUser.userId());
+        boolean currentUserHasVoted = currentUserVote != null;
+        String currentUserChoice = currentUserVote == null ? null : currentUserVote.getChoix().name();
+        String currentUserComment = currentUserVote == null ? null : currentUserVote.getCommentaire();
+
+        List<VoteHousingParticipationResponse> participationsLogements = eligibleUsersByLogement.entrySet().stream()
+                .map(entry -> {
+                    List<User> logementUsers = entry.getValue();
+                    Logement logement = logementUsers.get(0).getLogement();
+                    long totalEligibleVoters = logementUsers.size();
+                    long logementVoters = votedByLogement.getOrDefault(entry.getKey(), 0L);
+                    return new VoteHousingParticipationResponse(
+                            entry.getKey(),
+                            logement == null ? null : logement.getCodeInterne(),
+                            totalEligibleVoters,
+                            logementVoters,
+                            logementVoters > 0
+                    );
+                })
+                .sorted(Comparator.comparing(
+                        participation -> normalizeForSort(participation.getCodeInterne()),
+                        Comparator.nullsLast(String::compareTo)
+                ))
+                .toList();
+
+        long joursRestants = calculateDaysRemaining(vote.getDateFin());
+        boolean finProche = isOpen && joursRestants > 0 && joursRestants <= 3;
+        boolean currentUserEligible = authenticatedUser != null
+                && authenticatedUser.userId() != null
+                && eligibleUsers.stream().anyMatch(user -> Objects.equals(user.getId(), authenticatedUser.userId()));
+
+        return new VoteOverviewResponse(
+                vote.getId(),
+                vote.getResidence().getId(),
+                vote.getTitre(),
+                vote.getDescription(),
+                vote.getMontantEstime(),
+                effectiveStatut,
+                isOpen ? "EN_COURS" : "TERMINE",
+                vote.getDateDebut(),
+                vote.getDateFin(),
+                vote.getCreePar().getId(),
+                buildUserDisplayName(vote.getCreePar()),
+                vote.getDepense() == null ? null : vote.getDepense().getId(),
+                totalPour,
+                totalContre,
+                totalNeutre,
+                totalVotants,
+                eligibleUsers.size(),
+                resolveLeadingChoice(totalPour, totalContre, totalNeutre),
+                currentUserHasVoted,
+                currentUserChoice,
+                currentUserComment,
+                isOpen && currentUserEligible && !currentUserHasVoted,
+                joursRestants,
+                finProche,
+                participationsLogements
+        );
+    }
+
+    private List<User> getEligibleUsersForResidence(final Long residenceId) {
+        return userRepository.findAllByResidence_IdAndStatusAndRoleIn(
+                residenceId,
+                UserStatus.ACTIVE,
+                List.of(UserRole.ADMIN, UserRole.USER)
+        );
+    }
+
+    private Map<Long, List<VoteUtilisateur>> groupVoteRecordsByVoteId(final List<Vote> votes) {
+        List<Long> voteIds = votes.stream().map(Vote::getId).toList();
+        List<VoteUtilisateur> allVoteRecords = voteUtilisateurRepository.findAllByVote_IdIn(voteIds);
+        Map<Long, List<VoteUtilisateur>> recordsByVoteId = new HashMap<>();
+        for (VoteUtilisateur voteRecord : allVoteRecords) {
+            recordsByVoteId.computeIfAbsent(voteRecord.getVote().getId(), ignored -> new java.util.ArrayList<>())
+                    .add(voteRecord);
+        }
+        return recordsByVoteId;
+    }
+
+    private long countChoice(final List<VoteUtilisateur> voteRecords, final VoteChoix choix) {
+        return voteRecords.stream().filter(voteRecord -> voteRecord.getChoix() == choix).count();
+    }
+
+    private VoteStatut resolveEffectiveStatut(final Vote vote, final long totalPour, final long totalContre) {
+        if (vote.getStatut() != VoteStatut.OUVERT) {
+            return vote.getStatut();
+        }
+        if (vote.getDateFin().isAfter(LocalDateTime.now())) {
+            return vote.getStatut();
+        }
+        return totalPour > totalContre ? VoteStatut.VALIDE : VoteStatut.REJETE;
+    }
+
+    private boolean isVoteOpen(final Vote vote) {
+        return vote.getStatut() == VoteStatut.OUVERT && vote.getDateFin().isAfter(LocalDateTime.now());
+    }
+
+    private String resolveLeadingChoice(final long totalPour, final long totalContre, final long totalNeutre) {
+        long max = Math.max(totalPour, Math.max(totalContre, totalNeutre));
+        if (max == 0) {
+            return "AUCUN";
+        }
+
+        int winners = 0;
+        String leadingChoice = null;
+        if (totalPour == max) {
+            winners++;
+            leadingChoice = VoteChoix.POUR.name();
+        }
+        if (totalContre == max) {
+            winners++;
+            leadingChoice = VoteChoix.CONTRE.name();
+        }
+        if (totalNeutre == max) {
+            winners++;
+            leadingChoice = VoteChoix.NEUTRE.name();
+        }
+        return winners > 1 ? "EGALITE" : leadingChoice;
+    }
+
+    private long calculateDaysRemaining(final LocalDateTime endDate) {
+        long days = ChronoUnit.DAYS.between(LocalDateTime.now(), endDate);
+        return Math.max(days, 0);
+    }
+
+    private String buildUserDisplayName(final User user) {
+        if (user == null) {
+            return "";
+        }
+        String firstName = user.getFirstName() == null ? "" : user.getFirstName().trim();
+        String lastName = user.getLastName() == null ? "" : user.getLastName().trim();
+        String fullName = (firstName + " " + lastName).trim();
+        if (!fullName.isEmpty()) {
+            return fullName;
+        }
+        return user.getEmail() == null ? "" : user.getEmail().trim();
+    }
+
+    private String normalizeForSort(final String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
     }
 }

@@ -9,6 +9,7 @@ import com.resiflow.dto.SharedExpenseSummaryResponse;
 import com.resiflow.entity.CategorieDepense;
 import com.resiflow.entity.Depense;
 import com.resiflow.entity.Logement;
+import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.StatutDepense;
@@ -99,6 +100,7 @@ public class DepenseService {
         depense.setStatut(StatutDepense.EN_ATTENTE);
         depense.setCreePar(actor);
         depense.setDateCreation(LocalDateTime.now());
+        depense.setDeleted(false);
 
         return depenseRepository.save(depense);
     }
@@ -138,7 +140,7 @@ public class DepenseService {
     @Transactional(readOnly = true)
     public List<Depense> getDepensesByResidence(final Long residenceId, final AuthenticatedUser authenticatedUser) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
-        return depenseRepository.findAllByResidence_IdOrderByDateCreationDesc(residenceId);
+        return depenseRepository.findAllByResidence_IdAndIsDeletedFalseOrderByDateCreationDesc(residenceId);
     }
 
     @Transactional(readOnly = true)
@@ -147,7 +149,7 @@ public class DepenseService {
             final AuthenticatedUser authenticatedUser
     ) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
-        return depenseRepository.findAllByResidence_IdAndTypeDepenseAndStatutOrderByDateCreationDesc(
+        return depenseRepository.findAllByResidence_IdAndTypeDepenseAndStatutAndIsDeletedFalseOrderByDateCreationDesc(
                 residenceId,
                 TypeDepense.CAGNOTTE,
                 StatutDepense.APPROUVEE
@@ -161,7 +163,7 @@ public class DepenseService {
     ) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
         List<Logement> participantLogements = getActiveParticipantLogements(residenceId);
-        return depenseRepository.findAllByResidence_IdAndTypeDepenseAndStatutOrderByDateCreationDesc(
+        return depenseRepository.findAllByResidence_IdAndTypeDepenseAndStatutAndIsDeletedFalseOrderByDateCreationDesc(
                         residenceId,
                         TypeDepense.PARTAGE,
                         StatutDepense.APPROUVEE
@@ -227,14 +229,58 @@ public class DepenseService {
         depense.setStatut(StatutDepense.EN_ATTENTE);
         depense.setCreePar(actor);
         depense.setDateCreation(LocalDateTime.now());
+        depense.setDeleted(false);
         return depenseRepository.save(depense);
+    }
+
+    @Transactional
+    public void softDeleteSharedDepense(final Long depenseId, final AuthenticatedUser authenticatedUser) {
+        Depense depense = getRequiredDepense(depenseId);
+        residenceAccessService.ensureAdminAccessToResidence(authenticatedUser, depense.getResidence().getId());
+        if (depense.getTypeDepense() != TypeDepense.PARTAGE) {
+            throw new IllegalStateException("Only shared expenses can be deleted");
+        }
+
+        depense.setDeleted(true);
+        for (Paiement paiement : paiementRepository.findAllByDepense_Id(depenseId)) {
+            paiement.setDeleted(true);
+        }
+        depenseRepository.save(depense);
+    }
+
+    @Transactional
+    public void softDeleteSharedDepensePaiementsByLogement(
+            final Long depenseId,
+            final Long logementId,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        Depense depense = getRequiredDepense(depenseId);
+        residenceAccessService.ensureAdminAccessToResidence(authenticatedUser, depense.getResidence().getId());
+        if (depense.getTypeDepense() != TypeDepense.PARTAGE) {
+            throw new IllegalStateException("Only shared expense payments can be deleted by logement");
+        }
+
+        Logement logement = logementRepository.findById(logementId)
+                .orElseThrow(() -> new NoSuchElementException("Logement not found: " + logementId));
+        if (!depense.getResidence().getId().equals(logement.getResidenceId())) {
+            throw new IllegalArgumentException("Logement does not belong to the expense residence");
+        }
+
+        for (Paiement paiement : paiementRepository
+                .findAllByDepense_IdAndLogement_IdAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
+                        depenseId,
+                        logementId,
+                        TypePaiement.DEPENSE_PARTAGE
+                )) {
+            paiement.setDeleted(true);
+        }
     }
 
     public Depense getRequiredDepense(final Long depenseId) {
         if (depenseId == null) {
             throw new IllegalArgumentException("Depense ID must not be null");
         }
-        return depenseRepository.findById(depenseId)
+        return depenseRepository.findByIdAndIsDeletedFalse(depenseId)
                 .orElseThrow(() -> new NoSuchElementException("Depense not found: " + depenseId));
     }
 

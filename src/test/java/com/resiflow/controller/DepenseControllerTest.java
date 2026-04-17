@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -105,6 +106,10 @@ class DepenseControllerTest {
                         )
                 );
             }
+
+            @Override
+            public void softDeleteSharedDepense(final Long depenseId, final AuthenticatedUser authenticatedUser) {
+            }
         };
 
         PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null);
@@ -163,6 +168,15 @@ class DepenseControllerTest {
                 .andExpect(jsonPath("$[0].logementLabel").value("B - 101"))
                 .andExpect(jsonPath("$[0].codeInterne").value("RES7-APPARTEMENT-B-101"))
                 .andExpect(jsonPath("$[0].statut").value("PARTIELLEMENT_PAYE"));
+    }
+
+    @Test
+    void deleteSharedDepenseReturnsNoContent() throws Exception {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(2L, "admin@example.com", 7L, UserRole.ADMIN);
+
+        mockMvc.perform(delete("/api/depenses/11")
+                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null)))
+                .andExpect(status().isNoContent());
     }
 
     private Depense buildDepense(

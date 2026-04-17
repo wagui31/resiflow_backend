@@ -15,6 +15,7 @@ import com.resiflow.repository.UserRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -216,5 +217,49 @@ class DepenseServiceTest {
 
         assertThat(result.getMontantParPersonne()).isEqualByComparingTo("30.00");
         verify(logementRepository).countByResidence_IdAndActiveTrue(7L);
+    }
+
+    @Test
+    void softDeleteSharedDepenseMarksExpenseAndLinkedPaiementsAsDeleted() {
+        DepenseRepository depenseRepository = mock(DepenseRepository.class);
+        CategorieDepenseService categorieDepenseService = mock(CategorieDepenseService.class);
+        ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
+        TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        PaiementRepository paiementRepository = mock(PaiementRepository.class);
+        LogementRepository logementRepository = mock(LogementRepository.class);
+
+        DepenseService depenseService = new DepenseService(
+                depenseRepository,
+                categorieDepenseService,
+                residenceAccessService,
+                transactionCagnotteService,
+                userRepository,
+                paiementRepository,
+                logementRepository
+        );
+
+        Residence residence = new Residence();
+        residence.setId(7L);
+
+        Depense depense = new Depense();
+        depense.setId(99L);
+        depense.setResidence(residence);
+        depense.setTypeDepense(TypeDepense.PARTAGE);
+
+        com.resiflow.entity.Paiement paiement = new com.resiflow.entity.Paiement();
+        paiement.setId(501L);
+
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(2L, "admin@example.com", 7L, UserRole.ADMIN);
+
+        when(depenseRepository.findByIdAndIsDeletedFalse(99L)).thenReturn(Optional.of(depense));
+        when(paiementRepository.findAllByDepense_Id(99L)).thenReturn(List.of(paiement));
+
+        depenseService.softDeleteSharedDepense(99L, authenticatedUser);
+
+        assertThat(depense.isDeleted()).isTrue();
+        assertThat(paiement.isDeleted()).isTrue();
+        verify(residenceAccessService).ensureAdminAccessToResidence(authenticatedUser, 7L);
+        verify(depenseRepository).save(depense);
     }
 }

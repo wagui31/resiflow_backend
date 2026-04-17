@@ -66,7 +66,7 @@ class PaiementServiceTest {
         User actor = buildUser(10L, 7L, 70L);
         when(userRepository.findById(10L)).thenReturn(Optional.of(actor));
         when(residenceAccessService.getRequiredActor(authenticatedUser)).thenReturn(actor);
-        when(paiementRepository.existsByLogement_IdAndStatusAndTypePaiement(
+        when(paiementRepository.existsByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalse(
                 70L,
                 PaiementStatus.PENDING,
                 TypePaiement.CAGNOTTE
@@ -115,7 +115,7 @@ class PaiementServiceTest {
         User actor = buildUser(10L, 7L, 70L);
         when(userRepository.findById(10L)).thenReturn(Optional.of(actor));
         when(residenceAccessService.getRequiredActor(authenticatedUser)).thenReturn(actor);
-        when(paiementRepository.existsByLogement_IdAndStatusAndTypePaiement(
+        when(paiementRepository.existsByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalse(
                 70L,
                 PaiementStatus.PENDING,
                 TypePaiement.CAGNOTTE
@@ -165,7 +165,7 @@ class PaiementServiceTest {
         when(userRepository.findById(10L)).thenReturn(Optional.of(actor));
         when(residenceAccessService.getRequiredActor(authenticatedUser)).thenReturn(actor);
         when(depenseService.getRequiredDepense(99L)).thenReturn(depense);
-        when(paiementRepository.existsByLogement_IdAndStatusAndTypePaiementAndDepense_Id(
+        when(paiementRepository.existsByLogement_IdAndStatusAndTypePaiementAndDepense_IdAndIsDeletedFalse(
                 70L,
                 PaiementStatus.PENDING,
                 TypePaiement.DEPENSE_PARTAGE,

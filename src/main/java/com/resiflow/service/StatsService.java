@@ -63,7 +63,7 @@ public class StatsService {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
 
         List<Paiement> paiements =
-                paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+                paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
                         residenceId,
                         PaiementStatus.VALIDATED,
                         TypePaiement.CAGNOTTE
@@ -113,7 +113,7 @@ public class StatsService {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
 
         List<ExpenseCategoryCountResponse> categories =
-                depenseRepository.findAllByResidence_IdOrderByDateCreationDesc(residenceId).stream()
+                depenseRepository.findAllByResidence_IdAndIsDeletedFalseOrderByDateCreationDesc(residenceId).stream()
                         .collect(
                                 java.util.stream.Collectors.groupingBy(
                                         this::buildCategoryKey,

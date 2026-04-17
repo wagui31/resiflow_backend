@@ -12,19 +12,22 @@ import org.springframework.data.repository.query.Param;
 
 public interface PaiementRepository extends JpaRepository<Paiement, Long> {
 
-    List<Paiement> findAllByLogement_IdOrderByDatePaiementDesc(Long logementId);
+    List<Paiement> findAllByLogement_IdAndIsDeletedFalseOrderByDatePaiementDesc(Long logementId);
 
-    List<Paiement> findAllByResidence_IdOrderByDatePaiementDesc(Long residenceId);
+    List<Paiement> findAllByResidence_IdAndIsDeletedFalseOrderByDatePaiementDesc(Long residenceId);
 
-    List<Paiement> findAllByResidence_IdAndTypePaiementOrderByDatePaiementDesc(Long residenceId, TypePaiement typePaiement);
+    List<Paiement> findAllByResidence_IdAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
+            Long residenceId,
+            TypePaiement typePaiement
+    );
 
-    Optional<Paiement> findFirstByLogement_IdOrderByDateFinDescDatePaiementDesc(Long logementId);
+    Optional<Paiement> findFirstByLogement_IdAndIsDeletedFalseOrderByDateFinDescDatePaiementDesc(Long logementId);
 
-    List<Paiement> findAllByLogement_IdAndStatusOrderByDatePaiementDesc(Long logementId, PaiementStatus status);
+    List<Paiement> findAllByLogement_IdAndStatusAndIsDeletedFalseOrderByDatePaiementDesc(Long logementId, PaiementStatus status);
 
-    List<Paiement> findAllByResidence_IdAndStatusOrderByDatePaiementDesc(Long residenceId, PaiementStatus status);
+    List<Paiement> findAllByResidence_IdAndStatusAndIsDeletedFalseOrderByDatePaiementDesc(Long residenceId, PaiementStatus status);
 
-    List<Paiement> findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+    List<Paiement> findAllByResidence_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
             Long residenceId,
             PaiementStatus status,
             TypePaiement typePaiement
@@ -39,6 +42,7 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
             where r.id = :residenceId
               and p.status = :status
               and p.typePaiement = :typePaiement
+              and p.isDeleted = false
             order by p.datePaiement desc
             """)
     List<Paiement> findAllAdminPendingWithDetails(
@@ -55,6 +59,7 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
             join fetch p.creePar c
             where p.status = :status
               and p.typePaiement = :typePaiement
+              and p.isDeleted = false
             order by p.datePaiement desc
             """)
     List<Paiement> findAllAdminPendingWithDetails(
@@ -62,41 +67,61 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
             @Param("typePaiement") TypePaiement typePaiement
     );
 
-    Optional<Paiement> findFirstByLogement_IdAndStatusOrderByDateFinDescDatePaiementDesc(Long logementId, PaiementStatus status);
+    Optional<Paiement> findFirstByLogement_IdAndStatusAndIsDeletedFalseOrderByDateFinDescDatePaiementDesc(
+            Long logementId,
+            PaiementStatus status
+    );
 
-    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementOrderByDateFinDescDatePaiementDesc(
+    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDateFinDescDatePaiementDesc(
             Long logementId,
             PaiementStatus status,
             TypePaiement typePaiement
     );
 
-    Optional<Paiement> findFirstByLogement_IdAndStatusOrderByDatePaiementDesc(Long logementId, PaiementStatus status);
+    Optional<Paiement> findFirstByLogement_IdAndStatusAndIsDeletedFalseOrderByDatePaiementDesc(
+            Long logementId,
+            PaiementStatus status
+    );
 
-    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
             Long logementId,
             PaiementStatus status,
             TypePaiement typePaiement
     );
 
-    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementAndDepense_IdOrderByDatePaiementDesc(
+    Optional<Paiement> findFirstByLogement_IdAndStatusAndTypePaiementAndDepense_IdAndIsDeletedFalseOrderByDatePaiementDesc(
             Long logementId,
             PaiementStatus status,
             TypePaiement typePaiement,
             Long depenseId
     );
 
-    List<Paiement> findAllByDepense_IdOrderByDatePaiementDesc(Long depenseId);
+    List<Paiement> findAllByDepense_IdAndIsDeletedFalseOrderByDatePaiementDesc(Long depenseId);
 
-    boolean existsByLogement_IdAndStatus(Long logementId, PaiementStatus status);
+    List<Paiement> findAllByDepense_Id(Long depenseId);
 
-    boolean existsByLogement_IdAndStatusAndTypePaiement(Long logementId, PaiementStatus status, TypePaiement typePaiement);
+    List<Paiement> findAllByDepense_IdAndLogement_IdAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
+            Long depenseId,
+            Long logementId,
+            TypePaiement typePaiement
+    );
 
-    boolean existsByLogement_IdAndStatusAndTypePaiementAndDepense_Id(
+    boolean existsByLogement_IdAndStatusAndIsDeletedFalse(Long logementId, PaiementStatus status);
+
+    boolean existsByLogement_IdAndStatusAndTypePaiementAndIsDeletedFalse(
+            Long logementId,
+            PaiementStatus status,
+            TypePaiement typePaiement
+    );
+
+    boolean existsByLogement_IdAndStatusAndTypePaiementAndDepense_IdAndIsDeletedFalse(
             Long logementId,
             PaiementStatus status,
             TypePaiement typePaiement,
             Long depenseId
     );
+
+    Optional<Paiement> findByIdAndIsDeletedFalse(Long paiementId);
 
     @Query("""
             select coalesce(sum(p.montantTotal), 0)
@@ -105,6 +130,7 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
               and p.depense.id = :depenseId
               and p.typePaiement = :typePaiement
               and p.status = :status
+              and p.isDeleted = false
             """)
     BigDecimal sumMontantTotalByLogementAndDepenseAndTypeAndStatus(
             @Param("logementId") Long logementId,
@@ -119,6 +145,7 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
             where p.depense.id = :depenseId
               and p.typePaiement = :typePaiement
               and p.status = :status
+              and p.isDeleted = false
             group by p.logement.id
             """)
     List<Object[]> sumMontantTotalByDepenseAndTypeAndStatusGroupedByLogement(

@@ -7,6 +7,8 @@ public class VoteUtilisateurDetailResponse {
 
     private final Long userId;
     private final String userEmail;
+    private final Long logementId;
+    private final String logementCodeInterne;
     private final String choix;
     private final String commentaire;
     private final LocalDateTime dateVote;
@@ -14,12 +16,16 @@ public class VoteUtilisateurDetailResponse {
     public VoteUtilisateurDetailResponse(
             final Long userId,
             final String userEmail,
+            final Long logementId,
+            final String logementCodeInterne,
             final String choix,
             final String commentaire,
             final LocalDateTime dateVote
     ) {
         this.userId = userId;
         this.userEmail = userEmail;
+        this.logementId = logementId;
+        this.logementCodeInterne = logementCodeInterne;
         this.choix = choix;
         this.commentaire = commentaire;
         this.dateVote = dateVote;
@@ -29,6 +35,10 @@ public class VoteUtilisateurDetailResponse {
         return new VoteUtilisateurDetailResponse(
                 voteUtilisateur.getUtilisateur().getId(),
                 voteUtilisateur.getUtilisateur().getEmail(),
+                voteUtilisateur.getUtilisateur().getLogementId(),
+                voteUtilisateur.getUtilisateur().getLogement() == null
+                        ? null
+                        : voteUtilisateur.getUtilisateur().getLogement().getCodeInterne(),
                 voteUtilisateur.getChoix().name(),
                 voteUtilisateur.getCommentaire(),
                 voteUtilisateur.getDateVote()
@@ -41,6 +51,14 @@ public class VoteUtilisateurDetailResponse {
 
     public String getUserEmail() {
         return userEmail;
+    }
+
+    public Long getLogementId() {
+        return logementId;
+    }
+
+    public String getLogementCodeInterne() {
+        return logementCodeInterne;
     }
 
     public String getChoix() {

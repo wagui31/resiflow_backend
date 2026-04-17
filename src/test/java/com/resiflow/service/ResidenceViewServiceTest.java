@@ -73,12 +73,12 @@ class ResidenceViewServiceTest {
                 .thenReturn(List.of(actor, residentWithMissingName));
         when(userRepository.findAllByResidence_IdAndStatusAndRoleIn(eq(7L), eq(UserStatus.PENDING), any()))
                 .thenReturn(List.of());
-        when(paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+        when(paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
                 7L,
                 PaiementStatus.VALIDATED,
                 TypePaiement.CAGNOTTE
         )).thenReturn(List.of());
-        when(paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+        when(paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
                 7L,
                 PaiementStatus.PENDING,
                 TypePaiement.CAGNOTTE
@@ -129,12 +129,12 @@ class ResidenceViewServiceTest {
                 .thenReturn(List.of(actor));
         when(userRepository.findAllByResidence_IdAndStatusAndRoleIn(eq(7L), eq(UserStatus.PENDING), any()))
                 .thenReturn(List.of());
-        when(paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+        when(paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
                 7L,
                 PaiementStatus.VALIDATED,
                 TypePaiement.CAGNOTTE
         )).thenReturn(List.of());
-        when(paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+        when(paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
                 7L,
                 PaiementStatus.PENDING,
                 TypePaiement.CAGNOTTE

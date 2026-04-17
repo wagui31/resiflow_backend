@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -195,5 +196,28 @@ public class DepenseController {
         return ResponseEntity.ok(PaiementResponse.fromEntity(
                 paiementService.rejectSharedExpensePaiement(paiementId, authenticatedUser)
         ));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteSharedDepense(
+            @PathVariable final Long id,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        depenseService.softDeleteSharedDepense(id, authenticatedUser);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/logements/{logementId}/paiements")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteSharedDepensePaiementsByLogement(
+            @PathVariable final Long id,
+            @PathVariable final Long logementId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        depenseService.softDeleteSharedDepensePaiementsByLogement(id, logementId, authenticatedUser);
+        return ResponseEntity.noContent().build();
     }
 }

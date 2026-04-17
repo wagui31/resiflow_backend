@@ -1,11 +1,13 @@
 package com.resiflow.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class VoteActionRequest {
 
     private String choix;
+    @JsonAlias({"comment", "commentaire"})
     private String commentaire;
     private LocalDateTime nouvelleDateFin;
     private BigDecimal montant;

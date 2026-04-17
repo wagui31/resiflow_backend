@@ -85,7 +85,7 @@ public class ResidenceViewService {
                 .collect(java.util.stream.Collectors.groupingBy(User::getLogementId));
 
         Map<Long, Paiement> latestValidatedByLogement = buildLatestPaiementMap(
-                paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+                paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
                         residenceId,
                         PaiementStatus.VALIDATED,
                         TypePaiement.CAGNOTTE
@@ -93,7 +93,7 @@ public class ResidenceViewService {
                 true
         );
         Map<Long, Paiement> latestPendingByLogement = buildLatestPaiementMap(
-                paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementOrderByDatePaiementDesc(
+                paiementRepository.findAllByResidence_IdAndStatusAndTypePaiementAndIsDeletedFalseOrderByDatePaiementDesc(
                         residenceId,
                         PaiementStatus.PENDING,
                         TypePaiement.CAGNOTTE

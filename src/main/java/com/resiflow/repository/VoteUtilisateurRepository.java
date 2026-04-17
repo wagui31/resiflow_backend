@@ -14,4 +14,6 @@ public interface VoteUtilisateurRepository extends JpaRepository<VoteUtilisateur
     long countByVote_IdAndChoix(Long voteId, VoteChoix choix);
 
     List<VoteUtilisateur> findAllByVote_IdOrderByDateVoteAsc(Long voteId);
+
+    List<VoteUtilisateur> findAllByVote_IdIn(List<Long> voteIds);
 }
