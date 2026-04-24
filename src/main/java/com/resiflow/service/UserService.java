@@ -3,6 +3,7 @@ package com.resiflow.service;
 import com.resiflow.dto.AdminUserActionRequest;
 import com.resiflow.dto.CreateAdminRequest;
 import com.resiflow.dto.UpdateCurrentUserRequest;
+import com.resiflow.dto.UpdateCurrentUserPasswordRequest;
 import com.resiflow.entity.Logement;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.StatutPaiement;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.regex.Pattern;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService {
+
+    private static final Pattern PASSWORD_UPPERCASE_PATTERN = Pattern.compile(".*[A-Z].*");
+    private static final Pattern PASSWORD_LOWERCASE_PATTERN = Pattern.compile(".*[a-z].*");
+    private static final Pattern PASSWORD_SPECIAL_CHARACTER_PATTERN =
+            Pattern.compile(".*[^A-Za-z0-9].*");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -217,6 +224,28 @@ public class UserService {
     }
 
     @Transactional
+    public void updateCurrentUserPassword(
+            final AuthenticatedUser authenticatedUser,
+            final UpdateCurrentUserPasswordRequest request
+    ) {
+        validateUpdateCurrentUserPasswordRequest(request);
+        AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
+        User user = userRepository.findByIdForUpdate(actor.userId())
+                .orElseThrow(() -> new NoSuchElementException("User not found: " + actor.userId()));
+
+        String currentPassword = request.getCurrentPassword().trim();
+        String newPassword = request.getNewPassword().trim();
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Current password is invalid");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
+    @Transactional
     public void deleteUser(final Long userId, final AuthenticatedUser authenticatedUser) {
         User user = getManageableUser(userId, authenticatedUser);
         ensureDeletionAllowed(user, authenticatedUser);
@@ -250,6 +279,40 @@ public class UserService {
         }
         if (isBlank(request.getLastName())) {
             throw new IllegalArgumentException("Last name must not be blank");
+        }
+    }
+
+    private void validateUpdateCurrentUserPasswordRequest(final UpdateCurrentUserPasswordRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Update current user password request must not be null");
+        }
+        if (isBlank(request.getCurrentPassword())) {
+            throw new IllegalArgumentException("Current password must not be blank");
+        }
+        if (isBlank(request.getNewPassword())) {
+            throw new IllegalArgumentException("New password must not be blank");
+        }
+        if (isBlank(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Password confirmation must not be blank");
+        }
+
+        String newPassword = request.getNewPassword().trim();
+        String confirmPassword = request.getConfirmPassword().trim();
+
+        if (!newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("Password confirmation does not match");
+        }
+        if (newPassword.length() < 8) {
+            throw new IllegalArgumentException("New password must contain at least 8 characters");
+        }
+        if (!PASSWORD_UPPERCASE_PATTERN.matcher(newPassword).matches()) {
+            throw new IllegalArgumentException("New password must contain at least one uppercase letter");
+        }
+        if (!PASSWORD_LOWERCASE_PATTERN.matcher(newPassword).matches()) {
+            throw new IllegalArgumentException("New password must contain at least one lowercase letter");
+        }
+        if (!PASSWORD_SPECIAL_CHARACTER_PATTERN.matcher(newPassword).matches()) {
+            throw new IllegalArgumentException("New password must contain at least one special character");
         }
     }
 

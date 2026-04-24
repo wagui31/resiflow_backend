@@ -73,11 +73,12 @@ public class StatsService {
 
         BigDecimal totalContributions = sumContributions(transactions);
         BigDecimal totalDepenses = sumDepenses(transactions);
+        BigDecimal totalCorrections = sumCorrections(transactions);
 
         return new StatsResponse(
                 totalContributions,
                 totalDepenses,
-                totalContributions.subtract(totalDepenses),
+                totalContributions.subtract(totalDepenses).add(totalCorrections),
                 buildTopPayeurs(paiements),
                 buildEvolutionCagnotte(transactions)
         );
@@ -149,6 +150,13 @@ public class StatsService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    private BigDecimal sumCorrections(final List<TransactionCagnotte> transactions) {
+        return transactions.stream()
+                .filter(transaction -> transaction.getType() == TypeTransactionCagnotte.CORRECTION)
+                .map(TransactionCagnotte::getMontant)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private List<TopPayeurResponse> buildTopPayeurs(final List<Paiement> paiements) {
         Map<Long, TopPayeurAggregation> aggregations = new LinkedHashMap<>();
         for (Paiement paiement : paiements) {
@@ -181,9 +189,11 @@ public class StatsService {
                 .sorted(Comparator.comparing(TransactionCagnotte::getDateCreation))
                 .forEach(transaction -> {
                     YearMonth month = YearMonth.from(transaction.getDateCreation());
-                    BigDecimal delta = transaction.getType() == TypeTransactionCagnotte.CONTRIBUTION
-                            ? transaction.getMontant()
-                            : transaction.getMontant().negate();
+                    BigDecimal delta = switch (transaction.getType()) {
+                        case CONTRIBUTION -> transaction.getMontant();
+                        case DEPENSE -> transaction.getMontant().negate();
+                        case CORRECTION -> transaction.getMontant();
+                    };
                     deltaByMonth.merge(month, delta, BigDecimal::add);
                 });
 

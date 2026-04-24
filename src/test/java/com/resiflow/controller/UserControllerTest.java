@@ -2,6 +2,7 @@ package com.resiflow.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resiflow.dto.CreateAdminRequest;
+import com.resiflow.dto.UpdateCurrentUserPasswordRequest;
 import com.resiflow.entity.Logement;
 import com.resiflow.dto.UserPaiementHistoryResponse;
 import com.resiflow.entity.PaiementStatus;
@@ -27,6 +28,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -84,6 +86,20 @@ class UserControllerTest {
                 user.setCreatedAt(now);
                 user.setUpdatedAt(now);
                 return user;
+            }
+
+            @Override
+            public void updateCurrentUserPassword(
+                    final AuthenticatedUser authenticatedUser,
+                    final UpdateCurrentUserPasswordRequest request
+            ) {
+                if (request == null || request.getCurrentPassword() == null || request.getCurrentPassword().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Current password must not be blank");
+                }
+                if (request.getNewPassword() == null || request.getConfirmPassword() == null
+                        || !request.getNewPassword().trim().equals(request.getConfirmPassword().trim())) {
+                    throw new IllegalArgumentException("Password confirmation does not match");
+                }
             }
         };
 
@@ -189,5 +205,40 @@ class UserControllerTest {
                 .andExpect(jsonPath("$[0].id").doesNotExist())
                 .andExpect(jsonPath("$[0].datePaiement").doesNotExist())
                 .andExpect(jsonPath("$[1].status").value("PENDING"));
+    }
+
+    @Test
+    void updateCurrentUserPasswordReturnsNoContent() throws Exception {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER);
+        UpdateCurrentUserPasswordRequest request = new UpdateCurrentUserPasswordRequest();
+        request.setCurrentPassword("CurrentPass1!");
+        request.setNewPassword("NewPassworD!");
+        request.setConfirmPassword("NewPassworD!");
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    void updateCurrentUserPasswordReturnsBadRequestWhenConfirmationDoesNotMatch() throws Exception {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER);
+        UpdateCurrentUserPasswordRequest request = new UpdateCurrentUserPasswordRequest();
+        request.setCurrentPassword("CurrentPass1!");
+        request.setNewPassword("NewPassworD!");
+        request.setConfirmPassword("OtherPass1!");
+
+        mockMvc.perform(put("/api/users/me/password")
+                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value("Password confirmation does not match"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
     }
 }

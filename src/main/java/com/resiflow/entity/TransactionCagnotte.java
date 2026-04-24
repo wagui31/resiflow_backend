@@ -38,7 +38,7 @@ public class TransactionCagnotte {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal montant;
 
-    @Column(name = "reference_id", nullable = false)
+    @Column(name = "reference_id")
     private Long referenceId;
 
     @Column(name = "date_creation", nullable = false)

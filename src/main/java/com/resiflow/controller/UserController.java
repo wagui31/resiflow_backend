@@ -2,6 +2,7 @@ package com.resiflow.controller;
 
 import com.resiflow.dto.CreateAdminRequest;
 import com.resiflow.dto.UpdateCurrentUserRequest;
+import com.resiflow.dto.UpdateCurrentUserPasswordRequest;
 import com.resiflow.dto.UserPaiementHistoryResponse;
 import com.resiflow.dto.UserResponse;
 import com.resiflow.entity.User;
@@ -75,6 +76,17 @@ public class UserController {
     ) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         return ResponseEntity.ok(UserResponse.fromUser(userService.updateCurrentUser(authenticatedUser, request)));
+    }
+
+    @PutMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> updateCurrentUserPassword(
+            @RequestBody final UpdateCurrentUserPasswordRequest request,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        userService.updateCurrentUserPassword(authenticatedUser, request);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/paiements")

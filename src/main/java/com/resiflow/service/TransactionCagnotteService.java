@@ -1,5 +1,6 @@
 package com.resiflow.service;
 
+import com.resiflow.entity.CorrectionCagnotte;
 import com.resiflow.entity.Depense;
 import com.resiflow.entity.Paiement;
 import com.resiflow.entity.TransactionCagnotte;
@@ -36,6 +37,23 @@ public class TransactionCagnotteService {
         transaction.setType(TypeTransactionCagnotte.DEPENSE);
         transaction.setMontant(depense.getMontant());
         transaction.setReferenceId(depense.getId());
+        return transactionCagnotteRepository.save(transaction);
+    }
+
+    public TransactionCagnotte createCorrectionTransaction(final CorrectionCagnotte correction) {
+        if (correction == null) {
+            throw new IllegalArgumentException("Correction must not be null");
+        }
+        if (correction.getDelta() == null || correction.getDelta().signum() == 0) {
+            throw new IllegalArgumentException("Correction delta must not be zero");
+        }
+
+        TransactionCagnotte transaction = new TransactionCagnotte();
+        transaction.setResidence(correction.getResidence());
+        transaction.setLogement(null);
+        transaction.setType(TypeTransactionCagnotte.CORRECTION);
+        transaction.setMontant(correction.getDelta());
+        transaction.setReferenceId(correction.getId());
         return transactionCagnotteRepository.save(transaction);
     }
 }

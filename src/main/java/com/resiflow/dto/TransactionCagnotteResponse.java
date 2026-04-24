@@ -10,6 +10,7 @@ public class TransactionCagnotteResponse {
     private final Long id;
     private final Long residenceId;
     private final Long logementId;
+    private final String logementCodeInterne;
     private final TypeTransactionCagnotte type;
     private final BigDecimal montant;
     private final Long referenceId;
@@ -19,6 +20,7 @@ public class TransactionCagnotteResponse {
             final Long id,
             final Long residenceId,
             final Long logementId,
+            final String logementCodeInterne,
             final TypeTransactionCagnotte type,
             final BigDecimal montant,
             final Long referenceId,
@@ -27,6 +29,7 @@ public class TransactionCagnotteResponse {
         this.id = id;
         this.residenceId = residenceId;
         this.logementId = logementId;
+        this.logementCodeInterne = logementCodeInterne;
         this.type = type;
         this.montant = montant;
         this.referenceId = referenceId;
@@ -38,6 +41,7 @@ public class TransactionCagnotteResponse {
                 transaction.getId(),
                 transaction.getResidence().getId(),
                 transaction.getLogement() == null ? null : transaction.getLogement().getId(),
+                transaction.getLogement() == null ? null : transaction.getLogement().getCodeInterne(),
                 transaction.getType(),
                 transaction.getMontant(),
                 transaction.getReferenceId(),
@@ -55,6 +59,10 @@ public class TransactionCagnotteResponse {
 
     public Long getLogementId() {
         return logementId;
+    }
+
+    public String getLogementCodeInterne() {
+        return logementCodeInterne;
     }
 
     public TypeTransactionCagnotte getType() {

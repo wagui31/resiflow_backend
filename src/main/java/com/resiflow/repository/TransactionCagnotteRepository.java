@@ -23,5 +23,12 @@ public interface TransactionCagnotteRepository extends JpaRepository<Transaction
             @Param("type") TypeTransactionCagnotte type
     );
 
+    @Query("""
+            select coalesce(sum(t.montant), 0)
+            from TransactionCagnotte t
+            where t.residence.id = :residenceId
+            """)
+    BigDecimal sumMontantByResidence(@Param("residenceId") Long residenceId);
+
     boolean existsByTypeAndReferenceId(TypeTransactionCagnotte type, Long referenceId);
 }

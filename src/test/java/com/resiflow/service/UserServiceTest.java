@@ -2,6 +2,7 @@ package com.resiflow.service;
 
 import com.resiflow.dto.AdminUserActionRequest;
 import com.resiflow.dto.CreateAdminRequest;
+import com.resiflow.dto.UpdateCurrentUserPasswordRequest;
 import com.resiflow.entity.Logement;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.StatutPaiement;
@@ -214,6 +215,82 @@ class UserServiceTest {
         ))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("At least one admin must remain in the residence");
+    }
+
+    @Test
+    void updateCurrentUserPasswordUpdatesEncodedPassword() {
+        AtomicReference<User> savedUserRef = new AtomicReference<>();
+        User managedUser = buildUser(10L, "user@example.com", 7L, UserRole.USER, UserStatus.ACTIVE);
+        managedUser.setPassword(passwordEncoder.encode("CurrentPass1!"));
+        UserService userService = new UserService(
+                repositoryProxy(savedUserRef, Optional.of(managedUser), Collections.emptyList(), Collections.emptyList()),
+                passwordEncoder,
+                residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
+                eventPublisherNoOp()
+        );
+        UpdateCurrentUserPasswordRequest request = new UpdateCurrentUserPasswordRequest();
+        request.setCurrentPassword("CurrentPass1!");
+        request.setNewPassword("NewPassworD!");
+        request.setConfirmPassword("NewPassworD!");
+
+        userService.updateCurrentUserPassword(
+                new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER),
+                request
+        );
+
+        assertThat(savedUserRef.get()).isNotNull();
+        assertThat(passwordEncoder.matches("NewPassworD!", savedUserRef.get().getPassword())).isTrue();
+        assertThat(savedUserRef.get().getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void updateCurrentUserPasswordRejectsInvalidCurrentPassword() {
+        User managedUser = buildUser(10L, "user@example.com", 7L, UserRole.USER, UserStatus.ACTIVE);
+        managedUser.setPassword(passwordEncoder.encode("CurrentPass1!"));
+        UserService userService = new UserService(
+                repositoryProxy(new AtomicReference<>(), Optional.of(managedUser), Collections.emptyList(), Collections.emptyList()),
+                passwordEncoder,
+                residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
+                eventPublisherNoOp()
+        );
+        UpdateCurrentUserPasswordRequest request = new UpdateCurrentUserPasswordRequest();
+        request.setCurrentPassword("WrongPass1!");
+        request.setNewPassword("NewPassworD!");
+        request.setConfirmPassword("NewPassworD!");
+
+        assertThatThrownBy(() -> userService.updateCurrentUserPassword(
+                new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER),
+                request
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Current password is invalid");
+    }
+
+    @Test
+    void updateCurrentUserPasswordRejectsPasswordWithoutSpecialCharacter() {
+        UserService userService = new UserService(
+                repositoryProxy(new AtomicReference<>(), Optional.empty(), Collections.emptyList(), Collections.emptyList()),
+                passwordEncoder,
+                residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
+                eventPublisherNoOp()
+        );
+        UpdateCurrentUserPasswordRequest request = new UpdateCurrentUserPasswordRequest();
+        request.setCurrentPassword("CurrentPass1!");
+        request.setNewPassword("NewPassworD");
+        request.setConfirmPassword("NewPassworD");
+
+        assertThatThrownBy(() -> userService.updateCurrentUserPassword(
+                new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER),
+                request
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("New password must contain at least one special character");
     }
 
     private UserRepository repositoryProxy(

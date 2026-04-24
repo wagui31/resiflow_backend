@@ -1,7 +1,6 @@
 package com.resiflow.service;
 
 import com.resiflow.entity.TransactionCagnotte;
-import com.resiflow.entity.TypeTransactionCagnotte;
 import com.resiflow.repository.TransactionCagnotteRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
@@ -26,15 +25,15 @@ public class CagnotteService {
     @Transactional(readOnly = true)
     public BigDecimal calculerSolde(final Long residenceId, final AuthenticatedUser authenticatedUser) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
-        BigDecimal totalContributions = transactionCagnotteRepository.sumMontantByResidenceAndType(
-                residenceId,
-                TypeTransactionCagnotte.CONTRIBUTION
-        );
-        BigDecimal totalDepenses = transactionCagnotteRepository.sumMontantByResidenceAndType(
-                residenceId,
-                TypeTransactionCagnotte.DEPENSE
-        );
-        return totalContributions.subtract(totalDepenses);
+        return calculerSoldeInterne(residenceId);
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal calculerSoldeInterne(final Long residenceId) {
+        if (residenceId == null) {
+            throw new IllegalArgumentException("Residence ID must not be null");
+        }
+        return transactionCagnotteRepository.sumMontantByResidence(residenceId);
     }
 
     @Transactional(readOnly = true)
