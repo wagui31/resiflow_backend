@@ -3,6 +3,8 @@ package com.resiflow.controller;
 import com.resiflow.dto.DashboardResponse;
 import com.resiflow.dto.ExpenseCategoryCountResponse;
 import com.resiflow.dto.LogementResponse;
+import com.resiflow.dto.ResidenceAlertLogementResponse;
+import com.resiflow.dto.ResidenceAlertViewResponse;
 import com.resiflow.dto.LogementSummaryResponse;
 import com.resiflow.dto.ResidenceExpenseCategoryStatsResponse;
 import com.resiflow.dto.ResidenceImpayeResponse;
@@ -21,6 +23,7 @@ import com.resiflow.security.AuthenticatedUser;
 import com.resiflow.service.DashboardService;
 import com.resiflow.service.DepenseService;
 import com.resiflow.service.PaiementService;
+import com.resiflow.service.ResidenceAccessService;
 import com.resiflow.service.ResidenceService;
 import com.resiflow.service.ResidenceViewService;
 import com.resiflow.service.StatsService;
@@ -34,6 +37,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -44,6 +48,24 @@ class ResidenceControllerTest {
     @BeforeEach
     void setUp() {
         ResidenceService residenceService = new ResidenceService(null);
+        ResidenceAccessService residenceAccessService = new ResidenceAccessService(null, residenceService) {
+            @Override
+            public com.resiflow.entity.Residence getResidenceForAdmin(
+                    final Long residenceId,
+                    final AuthenticatedUser authenticatedUser
+            ) {
+                com.resiflow.entity.Residence residence = new com.resiflow.entity.Residence();
+                residence.setId(residenceId);
+                residence.setName("Residence Horizon");
+                residence.setAddress("12 rue des Fleurs");
+                residence.setCode("RES-HZN");
+                residence.setMontantMensuel(new BigDecimal("95.00"));
+                residence.setCurrency("EUR");
+                residence.setMaxOccupantsParLogement(4);
+                residence.setEnabled(Boolean.TRUE);
+                return residence;
+            }
+        };
         DashboardService dashboardService = new DashboardService(null, null, null, null, null) {
             @Override
             public DashboardResponse getDashboard(final Long residenceId, final AuthenticatedUser authenticatedUser) {
@@ -207,6 +229,46 @@ class ResidenceControllerTest {
                         )
                 );
             }
+
+            @Override
+            public ResidenceAlertViewResponse getResidenceAlertView(
+                    final Long residenceId,
+                    final AuthenticatedUser authenticatedUser
+            ) {
+                return new ResidenceAlertViewResponse(
+                        residenceId,
+                        1L,
+                        1L,
+                        List.of(
+                                new ResidenceAlertLogementResponse(
+                                        4L,
+                                        "PAYMENT_OVERDUE",
+                                        "App_H01_02_05",
+                                        "RES7-APPARTEMENT-H01-05",
+                                        TypeLogement.APPARTEMENT,
+                                        "05",
+                                        "H01",
+                                        "02",
+                                        true,
+                                        2,
+                                        List.of("2026-02", "2026-03")
+                                ),
+                                new ResidenceAlertLogementResponse(
+                                        9L,
+                                        "INACTIVE_HOUSING",
+                                        "Villa_001",
+                                        "RES7-MAISON-001",
+                                        TypeLogement.MAISON,
+                                        "001",
+                                        null,
+                                        null,
+                                        false,
+                                        0,
+                                        List.of()
+                                )
+                        )
+                );
+            }
         };
 
         mockMvc = MockMvcBuilders.standaloneSetup(
@@ -216,7 +278,8 @@ class ResidenceControllerTest {
                                 paiementService,
                                 statsService,
                                 depenseService,
-                                residenceViewService
+                                residenceViewService,
+                                residenceAccessService
                         )
                 )
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -254,6 +317,22 @@ class ResidenceControllerTest {
     }
 
     @Test
+    void getResidenceReturnsAdminReadablePayload() throws Exception {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN);
+
+        mockMvc.perform(get("/api/residences/7")
+                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7L))
+                .andExpect(jsonPath("$.name").value("Residence Horizon"))
+                .andExpect(jsonPath("$.address").value("12 rue des Fleurs"))
+                .andExpect(jsonPath("$.code").value("RES-HZN"))
+                .andExpect(jsonPath("$.montantMensuel").value(95.00))
+                .andExpect(jsonPath("$.currency").value("EUR"))
+                .andExpect(jsonPath("$.maxOccupantsParLogement").value(4));
+    }
+
+    @Test
     void getHousingViewReturnsAggregatedPayload() throws Exception {
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "admin@example.com", 7L, com.resiflow.entity.UserRole.ADMIN);
 
@@ -273,6 +352,23 @@ class ResidenceControllerTest {
     }
 
     @Test
+    void getHousingAlertsReturnsAlertPayload() throws Exception {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "admin@example.com", 7L, com.resiflow.entity.UserRole.ADMIN);
+
+        mockMvc.perform(get("/api/residences/7/housing-alerts")
+                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.residenceId").value(7L))
+                .andExpect(jsonPath("$.overdueLogementsCount").value(1))
+                .andExpect(jsonPath("$.inactiveLogementsCount").value(1))
+                .andExpect(jsonPath("$.logements[0].alertType").value("PAYMENT_OVERDUE"))
+                .andExpect(jsonPath("$.logements[0].label").value("App_H01_02_05"))
+                .andExpect(jsonPath("$.logements[0].overdueMonthsCount").value(2))
+                .andExpect(jsonPath("$.logements[1].alertType").value("INACTIVE_HOUSING"))
+                .andExpect(jsonPath("$.logements[1].label").value("Villa_001"));
+    }
+
+    @Test
     void getDepensesParCategorieStatsReturnsExpectedPayload() throws Exception {
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "admin@example.com", 7L, com.resiflow.entity.UserRole.ADMIN);
 
@@ -286,5 +382,25 @@ class ResidenceControllerTest {
                 .andExpect(jsonPath("$.categories[1].categorieId").value(2L))
                 .andExpect(jsonPath("$.categories[1].categorieNom").value("Electricite"))
                 .andExpect(jsonPath("$.categories[1].nombreDepenses").value(3));
+    }
+
+    @Test
+    void updateResidenceAdminSettingsRejectsInvalidMaxOccupants() throws Exception {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN);
+
+        mockMvc.perform(put("/api/residences/7/admin-settings")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "Residence Horizon",
+                                  "address": "12 rue des Fleurs",
+                                  "code": "RES-HZN",
+                                  "montantMensuel": 95.00,
+                                  "maxOccupantsParLogement": 6
+                                }
+                                """)
+                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Residence max occupants per logement must be between 1 and 5"));
     }
 }

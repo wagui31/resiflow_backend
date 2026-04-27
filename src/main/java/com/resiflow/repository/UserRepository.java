@@ -35,6 +35,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByResidence_IdAndRole(Long residenceId, UserRole role);
 
+    long countByResidence_IdAndRoleAndStatus(Long residenceId, UserRole role, UserStatus status);
+
     long countByLogement_IdAndStatusAndRoleIn(Long logementId, UserStatus status, List<UserRole> roles);
 
     long countByResidence_IdAndStatusAndRoleIn(Long residenceId, UserStatus status, List<UserRole> roles);

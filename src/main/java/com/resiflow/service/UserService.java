@@ -98,6 +98,12 @@ public class UserService {
         throw new AccessDeniedException("Insufficient role to access users");
     }
 
+    public List<User> getAdminUsers(final AuthenticatedUser authenticatedUser, final UserStatus status) {
+        return getUsers(authenticatedUser).stream()
+                .filter(user -> status == null || user.getStatus() == status)
+                .toList();
+    }
+
     public User getCurrentUser(final AuthenticatedUser authenticatedUser) {
         AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
         return userRepository.findById(actor.userId())
@@ -171,6 +177,45 @@ public class UserService {
                 savedUser.getEmail(),
                 "Votre demande a ete refusee",
                 buildActionBody("rejetee", request)
+        ));
+        return savedUser;
+    }
+
+    @Transactional
+    public User archiveUser(
+            final Long userId,
+            final AuthenticatedUser authenticatedUser,
+            final AdminUserActionRequest request
+    ) {
+        User user = getArchivableUser(userId, authenticatedUser);
+        ensureArchiveAllowed(user, authenticatedUser);
+        user.setStatus(UserStatus.ARCHIVED);
+        user.setUpdatedAt(LocalDateTime.now());
+        User savedUser = userRepository.save(user);
+        eventPublisher.publishEvent(new UserEmailNotificationEvent(
+                savedUser.getEmail(),
+                "Votre compte ResiFlow a ete archive",
+                buildActionBody("archive", request)
+        ));
+        return savedUser;
+    }
+
+    @Transactional
+    public User reactivateUser(
+            final Long userId,
+            final AuthenticatedUser authenticatedUser,
+            final AdminUserActionRequest request
+    ) {
+        User user = getArchivableUser(userId, authenticatedUser);
+        ensureReactivationAllowed(user);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setUpdatedAt(LocalDateTime.now());
+        User savedUser = userRepository.save(user);
+        logementService.activateLogementAfterUserApproval(savedUser.getLogement());
+        eventPublisher.publishEvent(new UserEmailNotificationEvent(
+                savedUser.getEmail(),
+                "Votre compte ResiFlow a ete reactive",
+                buildReactivationBody(request)
         ));
         return savedUser;
     }
@@ -375,6 +420,24 @@ public class UserService {
         throw new AccessDeniedException("Insufficient role for this operation");
     }
 
+    private User getArchivableUser(final Long userId, final AuthenticatedUser authenticatedUser) {
+        AuthenticatedUser actor = requireAuthenticatedUser(authenticatedUser);
+        if (actor.role() == UserRole.SUPER_ADMIN) {
+            User user = userRepository.findByIdForUpdate(userId)
+                    .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
+            ensureStatusActionAllowed(actor, user);
+            return user;
+        }
+        if (actor.role() == UserRole.ADMIN) {
+            requireResidenceId(actor.residenceId());
+            User user = userRepository.findByIdAndResidence_IdForUpdate(userId, actor.residenceId())
+                    .orElseThrow(() -> new NoSuchElementException("User not found in residence: " + userId));
+            ensureStatusActionAllowed(actor, user);
+            return user;
+        }
+        throw new AccessDeniedException("Insufficient role for this operation");
+    }
+
     private User getRoleManageableUser(final Long userId, final AuthenticatedUser actor) {
         if (actor.role() == UserRole.SUPER_ADMIN) {
             return userRepository.findByIdForUpdate(userId)
@@ -392,9 +455,10 @@ public class UserService {
         if (user.getId() != null && user.getId().equals(actor.userId())) {
             throw new IllegalStateException("Cannot delete your own account");
         }
-        if (user.getRole() == UserRole.ADMIN) {
+        if (user.getRole() == UserRole.ADMIN && user.getStatus() == UserStatus.ACTIVE) {
             Long residenceId = user.getResidenceId();
-            if (residenceId != null && userRepository.countByResidence_IdAndRole(residenceId, UserRole.ADMIN) <= 1) {
+            if (residenceId != null
+                    && userRepository.countByResidence_IdAndRoleAndStatus(residenceId, UserRole.ADMIN, UserStatus.ACTIVE) <= 1) {
                 throw new IllegalStateException("At least one admin must remain in the residence");
             }
         }
@@ -409,6 +473,15 @@ public class UserService {
             if (user.getRole() == UserRole.ADMIN) {
                 throw new AccessDeniedException("Residence admins cannot manage other admins");
             }
+        }
+    }
+
+    private void ensureStatusActionAllowed(final AuthenticatedUser actor, final User user) {
+        if (user.getRole() == UserRole.SUPER_ADMIN) {
+            throw new AccessDeniedException("Cannot manage a super admin user");
+        }
+        if (actor.role() == UserRole.ADMIN) {
+            ensureSameResidence(actor, user);
         }
     }
 
@@ -429,7 +502,9 @@ public class UserService {
 
     private void ensureAnotherAdminRemains(final User user) {
         Long residenceId = user.getResidenceId();
-        if (residenceId != null && userRepository.countByResidence_IdAndRole(residenceId, UserRole.ADMIN) <= 1) {
+        if (user.getStatus() == UserStatus.ACTIVE
+                && residenceId != null
+                && userRepository.countByResidence_IdAndRoleAndStatus(residenceId, UserRole.ADMIN, UserStatus.ACTIVE) <= 1) {
             throw new IllegalStateException("At least one admin must remain in the residence");
         }
     }
@@ -481,12 +556,23 @@ public class UserService {
         return body.toString();
     }
 
+    private String buildReactivationBody(final AdminUserActionRequest request) {
+        StringBuilder body = new StringBuilder("Votre compte est de nouveau actif. Vous pouvez vous connecter a ResiFlow.");
+        if (request != null && !isBlank(request.getComment())) {
+            body.append(" Commentaire: ").append(request.getComment().trim());
+        }
+        return body.toString();
+    }
+
     private void ensurePendingStatusForApproval(final User user) {
         if (user.getStatus() == UserStatus.ACTIVE) {
             throw new IllegalStateException("Compte deja valide");
         }
         if (user.getStatus() == UserStatus.REJECTED) {
             throw new IllegalStateException("Compte deja refuse");
+        }
+        if (user.getStatus() == UserStatus.ARCHIVED) {
+            throw new IllegalStateException("Compte archive");
         }
     }
 
@@ -496,6 +582,33 @@ public class UserService {
         }
         if (user.getStatus() == UserStatus.REJECTED) {
             throw new IllegalStateException("Compte deja refuse");
+        }
+        if (user.getStatus() == UserStatus.ARCHIVED) {
+            throw new IllegalStateException("Compte archive");
+        }
+    }
+
+    private void ensureArchiveAllowed(final User user, final AuthenticatedUser actor) {
+        if (user.getId() != null && user.getId().equals(actor.userId())) {
+            throw new IllegalStateException("Cannot archive your own account");
+        }
+        if (user.getStatus() == UserStatus.ARCHIVED) {
+            throw new IllegalStateException("Compte deja archive");
+        }
+        if (user.getStatus() == UserStatus.PENDING) {
+            throw new IllegalStateException("Compte en attente de validation");
+        }
+        if (user.getRole() == UserRole.ADMIN) {
+            ensureAnotherAdminRemains(user);
+        }
+    }
+
+    private void ensureReactivationAllowed(final User user) {
+        if (user.getStatus() == UserStatus.ACTIVE) {
+            throw new IllegalStateException("Compte deja valide");
+        }
+        if (user.getStatus() == UserStatus.PENDING) {
+            throw new IllegalStateException("Compte en attente de validation");
         }
     }
 }

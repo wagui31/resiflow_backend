@@ -6,8 +6,12 @@ import com.resiflow.dto.RegisterRequest;
 import com.resiflow.controller.AdminUserController;
 import com.resiflow.controller.AuthController;
 import com.resiflow.controller.HealthController;
+import com.resiflow.controller.PublicRegistrationController;
 import com.resiflow.controller.ResidenceController;
 import com.resiflow.controller.UserController;
+import com.resiflow.dto.PublicRegistrationCompositionType;
+import com.resiflow.dto.PublicRegistrationContextResponse;
+import com.resiflow.dto.PublicRegistrationFilterField;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
@@ -18,7 +22,9 @@ import com.resiflow.security.RestAuthenticationEntryPoint;
 import com.resiflow.service.AuthService;
 import com.resiflow.service.DashboardService;
 import com.resiflow.service.DepenseService;
+import com.resiflow.service.LogementService;
 import com.resiflow.service.PaiementService;
+import com.resiflow.service.ResidenceAccessService;
 import com.resiflow.service.ResidenceViewService;
 import com.resiflow.service.StatsService;
 import com.resiflow.service.UserService;
@@ -48,6 +54,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         AuthController.class,
         UserController.class,
         AdminUserController.class,
+        PublicRegistrationController.class,
         ResidenceController.class,
         SecurityConfigTest.TestProtectedController.class
 })
@@ -96,6 +103,12 @@ class SecurityConfigTest {
     @MockitoBean
     private ResidenceViewService residenceViewService;
 
+    @MockitoBean
+    private ResidenceAccessService residenceAccessService;
+
+    @MockitoBean
+    private LogementService logementService;
+
     @Test
     void healthEndpointIsPublic() throws Exception {
         mockMvc.perform(get("/health"))
@@ -136,6 +149,46 @@ class SecurityConfigTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void publicRegistrationContextEndpointIsPublic() throws Exception {
+        when(logementService.getPublicRegistrationContext("RES-ABC123"))
+                .thenReturn(new PublicRegistrationContextResponse(
+                        7L,
+                        "RES-ABC123",
+                        PublicRegistrationCompositionType.MIXED,
+                        java.util.List.of(PublicRegistrationFilterField.IMMEUBLE, PublicRegistrationFilterField.NUMERO),
+                        true,
+                        true,
+                        5
+                ));
+
+        mockMvc.perform(get("/api/public/residences/RES-ABC123/registration-context"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.compositionType").value("MIXED"));
+    }
+
+    @Test
+    void publicRegistrationSearchEndpointIsPublic() throws Exception {
+        when(logementService.searchPublicRegistrationLogements("RES-ABC123", "001", "A"))
+                .thenReturn(new com.resiflow.dto.PublicRegistrationSearchResponse(
+                        7L,
+                        "RES-ABC123",
+                        PublicRegistrationCompositionType.MIXED,
+                        java.util.List.of(PublicRegistrationFilterField.IMMEUBLE, PublicRegistrationFilterField.NUMERO),
+                        "001",
+                        "A",
+                        0,
+                        java.util.List.of()
+                ));
+
+        mockMvc.perform(get("/api/public/residences/RES-ABC123/logements/search")
+                        .param("numero", "001")
+                        .param("immeuble", "A"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.numeroFilter").value("001"))
+                .andExpect(jsonPath("$.immeubleFilter").value("A"));
     }
 
     @Test

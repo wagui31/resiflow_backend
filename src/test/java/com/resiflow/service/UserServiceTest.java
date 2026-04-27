@@ -153,6 +153,104 @@ class UserServiceTest {
     }
 
     @Test
+    void archiveUserAllowsAdminToArchiveAnotherAdminWhenAnotherActiveAdminRemains() {
+        AtomicReference<User> savedUserRef = new AtomicReference<>();
+        User managedAdmin = buildUser(20L, "other-admin@example.com", 7L, UserRole.ADMIN, UserStatus.ACTIVE);
+        RecordingEventPublisher eventPublisher = new RecordingEventPublisher();
+        UserService userService = new UserService(
+                repositoryProxy(savedUserRef, Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList(), 2L),
+                passwordEncoder,
+                residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
+                eventPublisher
+        );
+
+        User result = userService.archiveUser(
+                20L,
+                new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN),
+                new AdminUserActionRequest()
+        );
+
+        assertThat(savedUserRef.get().getStatus()).isEqualTo(UserStatus.ARCHIVED);
+        assertThat(result.getStatus()).isEqualTo(UserStatus.ARCHIVED);
+        assertThat(eventPublisher.lastEvent).isInstanceOf(UserEmailNotificationEvent.class);
+        UserEmailNotificationEvent event = (UserEmailNotificationEvent) eventPublisher.lastEvent;
+        assertThat(event.subject()).isEqualTo("Votre compte ResiFlow a ete archive");
+    }
+
+    @Test
+    void archiveUserRejectsLastActiveAdmin() {
+        User managedAdmin = buildUser(20L, "other-admin@example.com", 7L, UserRole.ADMIN, UserStatus.ACTIVE);
+        UserService userService = new UserService(
+                repositoryProxy(new AtomicReference<>(), Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList(), 1L),
+                passwordEncoder,
+                residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
+                eventPublisherNoOp()
+        );
+
+        assertThatThrownBy(() -> userService.archiveUser(
+                20L,
+                new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN),
+                null
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("At least one admin must remain in the residence");
+    }
+
+    @Test
+    void reactivateUserRestoresArchivedUserToActive() {
+        AtomicReference<User> savedUserRef = new AtomicReference<>();
+        User archivedUser = buildUser(14L, "archived@example.com", 7L, UserRole.USER, UserStatus.ARCHIVED);
+        RecordingEventPublisher eventPublisher = new RecordingEventPublisher();
+        UserService userService = new UserService(
+                repositoryProxy(savedUserRef, Optional.of(archivedUser), Collections.emptyList(), Collections.emptyList(), 0L),
+                passwordEncoder,
+                residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
+                eventPublisher
+        );
+
+        User result = userService.reactivateUser(
+                14L,
+                new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN),
+                new AdminUserActionRequest()
+        );
+
+        assertThat(savedUserRef.get().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(result.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(eventPublisher.lastEvent).isInstanceOf(UserEmailNotificationEvent.class);
+        UserEmailNotificationEvent event = (UserEmailNotificationEvent) eventPublisher.lastEvent;
+        assertThat(event.subject()).isEqualTo("Votre compte ResiFlow a ete reactive");
+    }
+
+    @Test
+    void reactivateUserAlsoAllowsRejectedUser() {
+        AtomicReference<User> savedUserRef = new AtomicReference<>();
+        User rejectedUser = buildUser(14L, "rejected@example.com", 7L, UserRole.USER, UserStatus.REJECTED);
+        UserService userService = new UserService(
+                repositoryProxy(savedUserRef, Optional.of(rejectedUser), Collections.emptyList(), Collections.emptyList(), 0L),
+                passwordEncoder,
+                residenceServiceStub(),
+                logementServiceStub(),
+                paymentStatusServiceStub(),
+                eventPublisherNoOp()
+        );
+
+        User result = userService.reactivateUser(
+                14L,
+                new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN),
+                null
+        );
+
+        assertThat(savedUserRef.get().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(result.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
     void updateUserRolePromotesResidentToAdminInSameResidence() {
         AtomicReference<User> savedUserRef = new AtomicReference<>();
         User resident = buildUser(14L, "resident@example.com", 7L, UserRole.USER, UserStatus.ACTIVE);
@@ -299,6 +397,16 @@ class UserServiceTest {
             final List<User> pendingUsers,
             final List<User> allUsers
     ) {
+        return repositoryProxy(savedUserRef, managedUser, pendingUsers, allUsers, 0L);
+    }
+
+    private UserRepository repositoryProxy(
+            final AtomicReference<User> savedUserRef,
+            final Optional<User> managedUser,
+            final List<User> pendingUsers,
+            final List<User> allUsers,
+            final long activeAdminsCount
+    ) {
         return (UserRepository) Proxy.newProxyInstance(
                 UserRepository.class.getClassLoader(),
                 new Class<?>[]{UserRepository.class},
@@ -338,9 +446,12 @@ class UserServiceTest {
                     }
                     if ("countByResidence_IdAndRole".equals(method.getName())) {
                         if (managedUser.isPresent() && managedUser.get().getRole() == UserRole.ADMIN) {
-                            return 1L;
+                            return Math.max(activeAdminsCount, 1L);
                         }
                         return 0L;
+                    }
+                    if ("countByResidence_IdAndRoleAndStatus".equals(method.getName())) {
+                        return activeAdminsCount;
                     }
                     if ("toString".equals(method.getName())) {
                         return "UserRepositoryTestProxy";

@@ -5,6 +5,7 @@ import com.resiflow.entity.Logement;
 import com.resiflow.entity.CategorieDepense;
 import com.resiflow.entity.Depense;
 import com.resiflow.entity.Residence;
+import com.resiflow.entity.StatutDepense;
 import com.resiflow.entity.TypeDepense;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
@@ -261,5 +262,79 @@ class DepenseServiceTest {
         assertThat(paiement.isDeleted()).isTrue();
         verify(residenceAccessService).ensureAdminAccessToResidence(authenticatedUser, 7L);
         verify(depenseRepository).save(depense);
+    }
+
+    @Test
+    void getApprovedSharedDepenseSummariesByResidencePutsCurrentUserLogementFirst() {
+        DepenseRepository depenseRepository = mock(DepenseRepository.class);
+        CategorieDepenseService categorieDepenseService = mock(CategorieDepenseService.class);
+        ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
+        TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        PaiementRepository paiementRepository = mock(PaiementRepository.class);
+        LogementRepository logementRepository = mock(LogementRepository.class);
+
+        DepenseService depenseService = new DepenseService(
+                depenseRepository,
+                categorieDepenseService,
+                residenceAccessService,
+                transactionCagnotteService,
+                userRepository,
+                paiementRepository,
+                logementRepository
+        );
+
+        Residence residence = new Residence();
+        residence.setId(7L);
+
+        Depense depense = new Depense();
+        depense.setId(11L);
+        depense.setResidence(residence);
+        depense.setTypeDepense(TypeDepense.PARTAGE);
+        depense.setStatut(StatutDepense.APPROUVEE);
+        depense.setMontant(new BigDecimal("120.00"));
+        depense.setMontantParPersonne(new BigDecimal("40.00"));
+
+        Logement logement101 = buildLogement(15L, "101", "B", "RES7-APPARTEMENT-B-101");
+        Logement logement102 = buildLogement(16L, "102", "B", "RES7-APPARTEMENT-B-102");
+        Logement logement103 = buildLogement(17L, "103", "B", "RES7-APPARTEMENT-B-103");
+
+        User currentUser = new User();
+        currentUser.setId(2L);
+        currentUser.setLogement(logement102);
+
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(2L, "admin@example.com", 7L, UserRole.ADMIN);
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(currentUser));
+        when(logementRepository.findAllByResidence_IdAndActiveOrderByNumeroAsc(7L, Boolean.TRUE))
+                .thenReturn(List.of(logement101, logement102, logement103));
+        when(depenseRepository.findAllByResidence_IdAndTypeDepenseAndStatutAndIsDeletedFalseOrderByDateCreationDesc(
+                7L,
+                TypeDepense.PARTAGE,
+                StatutDepense.APPROUVEE
+        )).thenReturn(List.of(depense));
+        when(paiementRepository.sumMontantTotalByDepenseAndTypeAndStatusGroupedByLogement(
+                11L,
+                com.resiflow.entity.TypePaiement.DEPENSE_PARTAGE,
+                com.resiflow.entity.PaiementStatus.VALIDATED
+        )).thenReturn(List.of());
+
+        List<com.resiflow.dto.SharedExpenseSummaryResponse> result =
+                depenseService.getApprovedSharedDepenseSummariesByResidence(7L, authenticatedUser);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getParticipants())
+                .extracting(com.resiflow.dto.SharedExpenseParticipantResponse::getLogementId)
+                .containsExactly(16L, 15L, 17L);
+    }
+
+    private Logement buildLogement(final Long id, final String numero, final String immeuble, final String codeInterne) {
+        Logement logement = new Logement();
+        logement.setId(id);
+        logement.setNumero(numero);
+        logement.setImmeuble(immeuble);
+        logement.setCodeInterne(codeInterne);
+        logement.setActive(true);
+        return logement;
     }
 }

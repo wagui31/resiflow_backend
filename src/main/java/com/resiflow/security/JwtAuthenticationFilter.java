@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final Logger LOGGER = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtService jwtService;
 
@@ -33,6 +36,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (!hasBearerToken(authorizationHeader)
                 || SecurityContextHolder.getContext().getAuthentication() != null) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace(
+                        "Skipping JWT authentication for path={} hasBearerToken={} alreadyAuthenticated={}",
+                        request.getRequestURI(),
+                        hasBearerToken(authorizationHeader),
+                        SecurityContextHolder.getContext().getAuthentication() != null
+                );
+            }
             filterChain.doFilter(request, response);
             return;
         }
@@ -53,12 +64,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 authenticatedUser,
                                 null,
                                 authenticatedUser.authorities()
-                        );
+                );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                LOGGER.debug(
+                        "JWT authentication established for userId={} residenceId={} role={} path={}",
+                        authenticatedUser.userId(),
+                        authenticatedUser.residenceId(),
+                        authenticatedUser.role(),
+                        request.getRequestURI()
+                );
             }
         } catch (RuntimeException exception) {
             SecurityContextHolder.clearContext();
+            LOGGER.warn("Invalid JWT token for path={}: {}", request.getRequestURI(), exception.getMessage());
         }
 
         filterChain.doFilter(request, response);

@@ -150,6 +150,51 @@ class ResidenceViewServiceTest {
         assertThat(response.getLogements().get(0).getPayment().getOverdueMonths()).containsExactly("2026-02", "2026-03");
     }
 
+    @Test
+    void getResidenceAlertViewReturnsOverdueBeforeInactive() {
+        ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
+        LogementRepository logementRepository = mock(LogementRepository.class);
+        UserRepository userRepository = mock(UserRepository.class);
+        PaiementRepository paiementRepository = mock(PaiementRepository.class);
+        CagnotteService cagnotteService = mock(CagnotteService.class);
+        PaymentStatusService paymentStatusService = mock(PaymentStatusService.class);
+
+        ResidenceViewService service = new ResidenceViewService(
+                residenceAccessService,
+                logementRepository,
+                userRepository,
+                paiementRepository,
+                cagnotteService,
+                paymentStatusService
+        );
+
+        Residence residence = new Residence();
+        residence.setId(7L);
+        residence.setMaxOccupantsParLogement(3);
+
+        Logement overdueLogement = buildLogement(10L, residence, "05", "H01", "RES7-APPARTEMENT-H01-05", true);
+        overdueLogement.setEtage("02");
+        Logement inactiveLogement = buildMaison(11L, residence, "001", "RES7-MAISON-001", false);
+
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(100L, "actor@example.com", 7L, UserRole.ADMIN);
+
+        when(residenceAccessService.getResidenceForMember(7L, authenticatedUser)).thenReturn(residence);
+        when(logementRepository.findAllByResidence_IdOrderByNumeroAsc(7L)).thenReturn(List.of(inactiveLogement, overdueLogement));
+        when(paymentStatusService.calculateStatus(overdueLogement)).thenReturn(StatutPaiement.EN_RETARD);
+        when(paymentStatusService.getOverdueMonths(overdueLogement)).thenReturn(List.of("2026-02", "2026-03"));
+
+        var response = service.getResidenceAlertView(7L, authenticatedUser);
+
+        assertThat(response.getOverdueLogementsCount()).isEqualTo(1);
+        assertThat(response.getInactiveLogementsCount()).isEqualTo(1);
+        assertThat(response.getLogements()).hasSize(2);
+        assertThat(response.getLogements().get(0).getAlertType()).isEqualTo("PAYMENT_OVERDUE");
+        assertThat(response.getLogements().get(0).getLabel()).isEqualTo("App_H01_02_05");
+        assertThat(response.getLogements().get(0).getOverdueMonthsCount()).isEqualTo(2);
+        assertThat(response.getLogements().get(1).getAlertType()).isEqualTo("INACTIVE_HOUSING");
+        assertThat(response.getLogements().get(1).getLabel()).isEqualTo("Villa_001");
+    }
+
     private Logement buildLogement(
             final Long id,
             final Residence residence,
@@ -164,6 +209,23 @@ class ResidenceViewServiceTest {
         logement.setTypeLogement(TypeLogement.APPARTEMENT);
         logement.setNumero(numero);
         logement.setImmeuble(immeuble);
+        logement.setCodeInterne(codeInterne);
+        logement.setActive(active);
+        return logement;
+    }
+
+    private Logement buildMaison(
+            final Long id,
+            final Residence residence,
+            final String numero,
+            final String codeInterne,
+            final boolean active
+    ) {
+        Logement logement = new Logement();
+        logement.setId(id);
+        logement.setResidence(residence);
+        logement.setTypeLogement(TypeLogement.MAISON);
+        logement.setNumero(numero);
         logement.setCodeInterne(codeInterne);
         logement.setActive(active);
         return logement;

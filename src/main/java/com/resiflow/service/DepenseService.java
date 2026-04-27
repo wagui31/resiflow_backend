@@ -27,6 +27,7 @@ import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -162,7 +163,7 @@ public class DepenseService {
             final AuthenticatedUser authenticatedUser
     ) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
-        List<Logement> participantLogements = getActiveParticipantLogements(residenceId);
+        List<Logement> participantLogements = getOrderedActiveParticipantLogements(residenceId, authenticatedUser);
         return depenseRepository.findAllByResidence_IdAndTypeDepenseAndStatutAndIsDeletedFalseOrderByDateCreationDesc(
                         residenceId,
                         TypeDepense.PARTAGE,
@@ -189,7 +190,10 @@ public class DepenseService {
             throw new IllegalStateException("Contributions are only available for shared expenses");
         }
 
-        List<Logement> participants = getActiveParticipantLogements(depense.getResidence().getId());
+        List<Logement> participants = getOrderedActiveParticipantLogements(
+                depense.getResidence().getId(),
+                authenticatedUser
+        );
         Map<Long, BigDecimal> paidByLogement = getPaidAmountsByLogement(depense.getId());
         BigDecimal montantDu = depense.getMontantParPersonne();
 
@@ -357,6 +361,31 @@ public class DepenseService {
 
     private List<Logement> getActiveParticipantLogements(final Long residenceId) {
         return logementRepository.findAllByResidence_IdAndActiveOrderByNumeroAsc(residenceId, Boolean.TRUE);
+    }
+
+    private List<Logement> getOrderedActiveParticipantLogements(
+            final Long residenceId,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        List<Logement> logements = getActiveParticipantLogements(residenceId);
+        Long currentLogementId = resolveCurrentLogementId(authenticatedUser);
+        if (currentLogementId == null) {
+            return logements;
+        }
+
+        return logements.stream()
+                .sorted(Comparator.comparing((Logement logement) -> !currentLogementId.equals(logement.getId())))
+                .toList();
+    }
+
+    private Long resolveCurrentLogementId(final AuthenticatedUser authenticatedUser) {
+        if (authenticatedUser == null || authenticatedUser.userId() == null || userRepository == null) {
+            return null;
+        }
+
+        return userRepository.findById(authenticatedUser.userId())
+                .map(User::getLogementId)
+                .orElse(null);
     }
 
     private SharedExpenseSummaryResponse toSharedExpenseSummary(

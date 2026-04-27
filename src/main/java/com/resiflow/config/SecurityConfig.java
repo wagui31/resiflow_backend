@@ -40,6 +40,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/app-config").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/residences/*/logements").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/public/residences/*/registration-context").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/public/residences/*/logements/search").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()

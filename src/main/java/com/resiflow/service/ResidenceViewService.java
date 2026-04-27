@@ -2,6 +2,8 @@ package com.resiflow.service;
 
 import com.resiflow.dto.LogementOccupancyResponse;
 import com.resiflow.dto.LogementResponse;
+import com.resiflow.dto.ResidenceAlertLogementResponse;
+import com.resiflow.dto.ResidenceAlertViewResponse;
 import com.resiflow.dto.ResidenceViewLogementCardResponse;
 import com.resiflow.dto.ResidenceViewOverviewResponse;
 import com.resiflow.dto.ResidenceViewPaymentStatusResponse;
@@ -13,6 +15,7 @@ import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.TypePaiement;
+import com.resiflow.entity.TypeLogement;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
@@ -155,6 +158,29 @@ public class ResidenceViewService {
         return new ResidenceViewResponse(overview, logementCards, pendingCards);
     }
 
+    @Transactional(readOnly = true)
+    public ResidenceAlertViewResponse getResidenceAlertView(
+            final Long residenceId,
+            final AuthenticatedUser authenticatedUser
+    ) {
+        residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
+
+        List<ResidenceAlertLogementResponse> alerts = logementRepository.findAllByResidence_IdOrderByNumeroAsc(residenceId).stream()
+                .map(this::toAlertCard)
+                .filter(Objects::nonNull)
+                .sorted(alertComparator())
+                .toList();
+
+        long overdueCount = alerts.stream()
+                .filter(alert -> "PAYMENT_OVERDUE".equals(alert.getAlertType()))
+                .count();
+        long inactiveCount = alerts.stream()
+                .filter(alert -> "INACTIVE_HOUSING".equals(alert.getAlertType()))
+                .count();
+
+        return new ResidenceAlertViewResponse(residenceId, overdueCount, inactiveCount, alerts);
+    }
+
     private ResidenceViewLogementCardResponse toLogementCard(
             final Logement logement,
             final List<User> residents,
@@ -236,6 +262,95 @@ public class ResidenceViewService {
                 pendingPaiement.getDateDebut(),
                 pendingPaiement.getDateFin()
         );
+    }
+
+    private ResidenceAlertLogementResponse toAlertCard(final Logement logement) {
+        if (!Boolean.TRUE.equals(logement.getActive())) {
+            return new ResidenceAlertLogementResponse(
+                    logement.getId(),
+                    "INACTIVE_HOUSING",
+                    buildAlertLabel(logement),
+                    logement.getCodeInterne(),
+                    logement.getTypeLogement(),
+                    logement.getNumero(),
+                    logement.getImmeuble(),
+                    logement.getEtage(),
+                    logement.getActive(),
+                    0,
+                    List.of()
+            );
+        }
+
+        List<String> overdueMonths = paymentStatusService.getOverdueMonths(logement);
+        if (paymentStatusService.calculateStatus(logement) != StatutPaiement.EN_RETARD || overdueMonths.isEmpty()) {
+            return null;
+        }
+
+        return new ResidenceAlertLogementResponse(
+                logement.getId(),
+                "PAYMENT_OVERDUE",
+                buildAlertLabel(logement),
+                logement.getCodeInterne(),
+                logement.getTypeLogement(),
+                logement.getNumero(),
+                logement.getImmeuble(),
+                logement.getEtage(),
+                logement.getActive(),
+                overdueMonths.size(),
+                overdueMonths
+        );
+    }
+
+    private Comparator<ResidenceAlertLogementResponse> alertComparator() {
+        return Comparator
+                .comparingInt(this::alertRank)
+                .thenComparing(ResidenceAlertLogementResponse::getOverdueMonthsCount, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(alert -> normalize(alert.getImmeuble()), nullSafeStringComparator())
+                .thenComparing(alert -> normalize(alert.getEtage()), nullSafeStringComparator())
+                .thenComparing(alert -> normalize(alert.getNumero()), nullSafeStringComparator())
+                .thenComparing(alert -> normalize(alert.getCodeInterne()), nullSafeStringComparator());
+    }
+
+    private int alertRank(final ResidenceAlertLogementResponse alert) {
+        if ("PAYMENT_OVERDUE".equals(alert.getAlertType())) {
+            return 0;
+        }
+        if ("INACTIVE_HOUSING".equals(alert.getAlertType())) {
+            return 1;
+        }
+        return 2;
+    }
+
+    private String buildAlertLabel(final Logement logement) {
+        if (logement == null) {
+            return null;
+        }
+        if (logement.getTypeLogement() == TypeLogement.MAISON) {
+            return "Villa_" + safeSegment(logement.getNumero(), logement.getCodeInterne());
+        }
+
+        String immeuble = normalizeOptionalSegment(logement.getImmeuble());
+        String etage = normalizeOptionalSegment(logement.getEtage());
+        String numero = normalizeOptionalSegment(logement.getNumero());
+        if (immeuble == null || etage == null || numero == null) {
+            return logement.getCodeInterne();
+        }
+        return "App_" + immeuble + "_" + etage + "_" + numero;
+    }
+
+    private String normalizeOptionalSegment(final String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return value.trim().toUpperCase().replaceAll("\\s+", "");
+    }
+
+    private String safeSegment(final String primaryValue, final String fallbackValue) {
+        String normalizedPrimary = normalizeOptionalSegment(primaryValue);
+        if (normalizedPrimary != null) {
+            return normalizedPrimary;
+        }
+        return fallbackValue == null ? "" : fallbackValue.trim();
     }
 
     private Map<Long, Paiement> buildLatestPaiementMap(final List<Paiement> paiements, final boolean compareDateFin) {

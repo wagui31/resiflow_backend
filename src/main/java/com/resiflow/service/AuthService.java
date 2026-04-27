@@ -11,6 +11,8 @@ import com.resiflow.entity.UserStatus;
 import com.resiflow.repository.UserRepository;
 import com.resiflow.security.JwtService;
 import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +25,8 @@ public class AuthService {
     private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid credentials";
     private static final String PENDING_MESSAGE = "Votre compte est en attente de validation";
     private static final String REJECTED_MESSAGE = "Votre demande a ete refusee";
+    private static final String ARCHIVED_MESSAGE = "Votre compte a ete archive";
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
     private final ResidenceService residenceService;
@@ -55,21 +59,39 @@ public class AuthService {
 
         String email = request.getEmail().trim();
         String password = request.getPassword().trim();
+        LOGGER.info("Authentication attempt started for email={}", email);
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new InvalidCredentialsException(INVALID_CREDENTIALS_MESSAGE));
+                .orElseThrow(() -> {
+                    LOGGER.warn("Authentication failed because user was not found for email={}", email);
+                    return new InvalidCredentialsException(INVALID_CREDENTIALS_MESSAGE);
+                });
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
+            LOGGER.warn("Authentication failed because password did not match for email={} userId={}", email, user.getId());
             throw new InvalidCredentialsException(INVALID_CREDENTIALS_MESSAGE);
         }
         if (user.getStatus() == UserStatus.PENDING) {
+            LOGGER.warn("Authentication blocked because account is pending for userId={} email={}", user.getId(), email);
             throw new AccountStatusException(ApiErrorCode.ACCOUNT_PENDING, PENDING_MESSAGE);
         }
         if (user.getStatus() == UserStatus.REJECTED) {
+            LOGGER.warn("Authentication blocked because account is rejected for userId={} email={}", user.getId(), email);
             throw new AccountStatusException(ApiErrorCode.ACCOUNT_REJECTED, REJECTED_MESSAGE);
+        }
+        if (user.getStatus() == UserStatus.ARCHIVED) {
+            LOGGER.warn("Authentication blocked because account is archived for userId={} email={}", user.getId(), email);
+            throw new AccountStatusException(ApiErrorCode.ACCOUNT_ARCHIVED, ARCHIVED_MESSAGE);
         }
 
         String token = jwtService.generateToken(user);
+        LOGGER.info(
+                "Authentication succeeded for userId={} email={} residenceId={} role={}",
+                user.getId(),
+                user.getEmail(),
+                user.getResidenceId(),
+                user.getRole()
+        );
         return new LoginResponse(
                 user.getId(),
                 user.getEmail(),
@@ -89,11 +111,18 @@ public class AuthService {
     @Transactional
     public User register(final RegisterRequest request, final String clientPlatform) {
         validateRegisterRequest(request);
+        String email = request.getEmail().trim();
+        LOGGER.info(
+                "Registration started for email={} residenceCode={} logementId={} clientPlatform={}",
+                email,
+                request.getResidenceCode(),
+                request.getLogementId(),
+                clientPlatform
+        );
         if (!isMobileClient(clientPlatform)) {
             captchaVerificationService.validateRegistrationCaptcha(request.getCaptchaToken());
         }
 
-        String email = request.getEmail().trim();
         ensureEmailAvailable(email);
 
         User user = new User();
@@ -118,10 +147,19 @@ public class AuthService {
         try {
             savedUser = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
+            LOGGER.error("Registration persistence failed for email={}", email, exception);
             throw translateRegisterDataIntegrityViolation(exception, email);
         }
 
         eventPublisher.publishEvent(new RegistrationCompletedEvent(savedUser.getResidenceId(), savedUser.getEmail()));
+        LOGGER.info(
+                "Registration completed for userId={} email={} residenceId={} logementId={} status={}",
+                savedUser.getId(),
+                savedUser.getEmail(),
+                savedUser.getResidenceId(),
+                savedUser.getLogementId(),
+                savedUser.getStatus()
+        );
 
         return savedUser;
     }
@@ -184,6 +222,7 @@ public class AuthService {
 
     private void ensureEmailAvailable(final String email) {
         if (userRepository.existsByEmail(email)) {
+            LOGGER.warn("Registration rejected because email is already used: email={}", email);
             throw new EmailAlreadyUsedException("Email is already used");
         }
     }
@@ -199,9 +238,11 @@ public class AuthService {
 
         String message = cause.getMessage();
         if (message != null && message.contains("uk_users_email")) {
+            LOGGER.warn("Registration failed due to duplicate email constraint for email={}", email);
             return new EmailAlreadyUsedException("Email is already used");
         }
 
+        LOGGER.error("Unhandled data integrity violation during registration for email={}", email, exception);
         return exception;
     }
 }

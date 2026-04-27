@@ -1,6 +1,7 @@
 package com.resiflow.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.resiflow.dto.AdminUserActionRequest;
 import com.resiflow.dto.UpdateUserRoleRequest;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
@@ -16,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,6 +50,24 @@ class AdminUserControllerTest {
                 user.setResidenceId(authenticatedUser.residenceId());
                 user.setRole(role);
                 user.setStatus(UserStatus.ACTIVE);
+                LocalDateTime now = LocalDateTime.now();
+                user.setCreatedAt(now.minusDays(1));
+                user.setUpdatedAt(now);
+                return user;
+            }
+
+            @Override
+            public User archiveUser(
+                    final Long userId,
+                    final AuthenticatedUser authenticatedUser,
+                    final com.resiflow.dto.AdminUserActionRequest request
+            ) {
+                User user = new User();
+                user.setId(userId);
+                user.setEmail("target@example.com");
+                user.setResidenceId(authenticatedUser.residenceId());
+                user.setRole(UserRole.ADMIN);
+                user.setStatus(UserStatus.ARCHIVED);
                 LocalDateTime now = LocalDateTime.now();
                 user.setCreatedAt(now.minusDays(1));
                 user.setUpdatedAt(now);
@@ -90,5 +110,22 @@ class AdminUserControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").value("Cannot change your own role"));
+    }
+
+    @Test
+    void archiveUserReturnsArchivedUser() throws Exception {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN);
+        AdminUserActionRequest request = new AdminUserActionRequest();
+        request.setComment("Archive");
+
+        mockMvc.perform(post("/api/admin/users/14/archive")
+                        .principal(new UsernamePasswordAuthenticationToken(authenticatedUser, null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(14L))
+                .andExpect(jsonPath("$.residenceId").value(7L))
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.status").value("ARCHIVED"));
     }
 }

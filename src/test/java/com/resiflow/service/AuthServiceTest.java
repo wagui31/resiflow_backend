@@ -100,6 +100,35 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginRejectsArchivedUser() {
+        User user = new User();
+        user.setEmail("resident@example.com");
+        user.setPassword(passwordEncoder.encode("secret"));
+        user.setRole(UserRole.USER);
+        user.setStatus(UserStatus.ARCHIVED);
+
+        AuthService authService = new AuthService(
+                repositoryProxy(Optional.of(user), new AtomicReference<>()),
+                residenceServiceStub(),
+                logementServiceStub(),
+                new JwtService(new JwtProperties(SECRET, 3600000)),
+                passwordEncoder,
+                captchaServiceDisabled(),
+                eventPublisherNoOp()
+        );
+
+        LoginRequest request = new LoginRequest();
+        request.setEmail("resident@example.com");
+        request.setPassword("secret");
+
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(AccountStatusException.class)
+                .hasMessage("Votre compte a ete archive")
+                .extracting(error -> ((AccountStatusException) error).getCode())
+                .isEqualTo(ApiErrorCode.ACCOUNT_ARCHIVED);
+    }
+
+    @Test
     void registerCreatesPendingResidenceUserOnSelectedLogement() {
         AtomicReference<User> savedUserRef = new AtomicReference<>();
         RecordingEventPublisher eventPublisher = new RecordingEventPublisher();

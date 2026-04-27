@@ -1,6 +1,7 @@
 package com.resiflow.service;
 
 import com.resiflow.dto.CreateResidenceRequest;
+import com.resiflow.dto.UpdateResidenceAdminSettingsRequest;
 import com.resiflow.entity.Residence;
 import com.resiflow.repository.ResidenceRepository;
 import java.time.LocalDateTime;
@@ -61,6 +62,24 @@ public class ResidenceService {
         return residenceRepository.save(residence);
     }
 
+    @Transactional
+    public Residence updateResidenceAdminSettings(
+            final Long residenceId,
+            final UpdateResidenceAdminSettingsRequest request
+    ) {
+        validateAdminSettingsRequest(request);
+
+        Residence residence = getRequiredResidence(residenceId);
+        residence.setName(request.getName().trim());
+        residence.setAddress(request.getAddress().trim());
+        residence.setCode(resolveResidenceCode(request.getCode(), residenceId));
+        residence.setMontantMensuel(request.getMontantMensuel());
+        residence.setMaxOccupantsParLogement(request.getMaxOccupantsParLogement());
+        residence.setUpdatedAt(LocalDateTime.now());
+
+        return residenceRepository.save(residence);
+    }
+
     public void deleteResidence(final Long residenceId) {
         Residence residence = getRequiredResidence(residenceId);
         residenceRepository.delete(residence);
@@ -106,8 +125,37 @@ public class ResidenceService {
         if (!isValidCurrency(request.getCurrency())) {
             throw new IllegalArgumentException("Residence currency must be a 3-letter ISO code");
         }
-        if (request.getMaxOccupantsParLogement() == null || request.getMaxOccupantsParLogement() <= 0) {
+        validateMaxOccupantsParLogement(request.getMaxOccupantsParLogement());
+    }
+
+    private void validateAdminSettingsRequest(final UpdateResidenceAdminSettingsRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Update residence admin settings request must not be null");
+        }
+        if (isBlank(request.getName())) {
+            throw new IllegalArgumentException("Residence name must not be blank");
+        }
+        if (isBlank(request.getAddress())) {
+            throw new IllegalArgumentException("Residence address must not be blank");
+        }
+        if (isBlank(request.getCode())) {
+            throw new IllegalArgumentException("Residence code must not be blank");
+        }
+        if (request.getMontantMensuel() == null) {
+            throw new IllegalArgumentException("Residence monthly amount must not be null");
+        }
+        if (request.getMontantMensuel().signum() <= 0) {
+            throw new IllegalArgumentException("Residence monthly amount must be greater than zero");
+        }
+        validateMaxOccupantsParLogement(request.getMaxOccupantsParLogement());
+    }
+
+    private void validateMaxOccupantsParLogement(final Integer maxOccupantsParLogement) {
+        if (maxOccupantsParLogement == null || maxOccupantsParLogement <= 0) {
             throw new IllegalArgumentException("Residence max occupants per logement must be greater than zero");
+        }
+        if (maxOccupantsParLogement > 5) {
+            throw new IllegalArgumentException("Residence max occupants per logement must be between 1 and 5");
         }
     }
 

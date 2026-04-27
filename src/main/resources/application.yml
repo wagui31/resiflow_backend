@@ -37,8 +37,13 @@ logging:
   level:
     root: INFO
     com.resiflow: INFO
+    com.resiflow.controller: INFO
+    com.resiflow.service: INFO
+    com.resiflow.repository: INFO
+    com.resiflow.security: INFO
+    org.springframework.security: WARN
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [corr:%X{correlationId:-na}] [req:%X{requestId:-na}] %logger{36} - %msg%n"
 
 app:
   jwt:

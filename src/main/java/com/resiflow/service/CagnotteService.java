@@ -1,6 +1,7 @@
 package com.resiflow.service;
 
 import com.resiflow.entity.TransactionCagnotte;
+import com.resiflow.entity.TypeTransactionCagnotte;
 import com.resiflow.repository.TransactionCagnotteRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
@@ -33,12 +34,24 @@ public class CagnotteService {
         if (residenceId == null) {
             throw new IllegalArgumentException("Residence ID must not be null");
         }
-        return transactionCagnotteRepository.sumMontantByResidence(residenceId);
+        return transactionCagnotteRepository.findAllByResidence_IdOrderByDateCreationDesc(residenceId).stream()
+                .map(transaction -> applyTransactionSign(transaction.getType(), transaction.getMontant()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     @Transactional(readOnly = true)
     public List<TransactionCagnotte> getTransactions(final Long residenceId, final AuthenticatedUser authenticatedUser) {
         residenceAccessService.getResidenceForMember(residenceId, authenticatedUser);
         return transactionCagnotteRepository.findAllByResidence_IdOrderByDateCreationDesc(residenceId);
+    }
+
+    private BigDecimal applyTransactionSign(final TypeTransactionCagnotte type, final BigDecimal montant) {
+        if (montant == null) {
+            return BigDecimal.ZERO;
+        }
+        if (type == TypeTransactionCagnotte.DEPENSE) {
+            return montant.negate();
+        }
+        return montant;
     }
 }

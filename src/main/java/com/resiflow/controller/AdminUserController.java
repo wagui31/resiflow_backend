@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.resiflow.entity.UserStatus;
 
 @RestController
 @RequestMapping("/api/admin/users")
@@ -28,6 +30,18 @@ public class AdminUserController {
 
     public AdminUserController(final UserService userService) {
         this.userService = userService;
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<List<UserResponse>> getAdminUsers(
+            @RequestParam(required = false) final UserStatus status,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(userService.getAdminUsers(authenticatedUser, status).stream()
+                .map(UserResponse::fromUser)
+                .toList());
     }
 
     @GetMapping("/pending")
@@ -59,6 +73,28 @@ public class AdminUserController {
     ) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         return ResponseEntity.ok(UserResponse.fromUser(userService.rejectUser(id, authenticatedUser, request)));
+    }
+
+    @PostMapping("/{id}/archive")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<UserResponse> archiveUser(
+            @PathVariable final Long id,
+            @RequestBody(required = false) final AdminUserActionRequest request,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(UserResponse.fromUser(userService.archiveUser(id, authenticatedUser, request)));
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<UserResponse> reactivateUser(
+            @PathVariable final Long id,
+            @RequestBody(required = false) final AdminUserActionRequest request,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(UserResponse.fromUser(userService.reactivateUser(id, authenticatedUser, request)));
     }
 
     @PutMapping("/{id}/date-entree-residence")

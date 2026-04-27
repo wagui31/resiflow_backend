@@ -5,7 +5,11 @@ import com.resiflow.dto.CreateLogementsBulkRequest;
 import com.resiflow.dto.CreateLogementsBulkResponse;
 import com.resiflow.dto.LogementOccupancyResponse;
 import com.resiflow.dto.LogementResponse;
+import com.resiflow.dto.PublicRegistrationCompositionType;
+import com.resiflow.dto.PublicRegistrationContextResponse;
+import com.resiflow.dto.PublicRegistrationFilterField;
 import com.resiflow.dto.PublicRegistrationLogementResponse;
+import com.resiflow.dto.PublicRegistrationSearchResponse;
 import com.resiflow.dto.UpdateLogementRequest;
 import com.resiflow.entity.Logement;
 import com.resiflow.entity.Residence;
@@ -17,8 +21,10 @@ import com.resiflow.repository.UserRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -191,13 +197,78 @@ public class LogementService {
     public List<PublicRegistrationLogementResponse> getPublicRegistrationLogements(final String residenceCode) {
         Residence residence = residenceService.getRequiredResidenceByCode(normalizeResidenceCode(residenceCode));
         int maxOccupants = residence.getMaxOccupantsParLogement();
-        return logementRepository.findAllByResidence_IdOrderByNumeroAsc(residence.getId()).stream()
+        return sortForPublicRegistration(logementRepository.findAllByResidence_IdOrderByNumeroAsc(residence.getId())).stream()
                 .map(logement -> PublicRegistrationLogementResponse.fromEntity(
                         logement,
                         countActiveOccupants(logement.getId()),
                         maxOccupants
                 ))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PublicRegistrationContextResponse getPublicRegistrationContext(final String residenceCode) {
+        Residence residence = residenceService.getRequiredResidenceByCode(normalizeResidenceCode(residenceCode));
+        List<Logement> logements = logementRepository.findAllByResidence_IdOrderByNumeroAsc(residence.getId());
+        PublicRegistrationCompositionType compositionType = resolveCompositionType(logements);
+        return new PublicRegistrationContextResponse(
+                residence.getId(),
+                residence.getCode(),
+                compositionType,
+                resolveAllowedFilters(compositionType),
+                containsType(logements, TypeLogement.MAISON),
+                containsType(logements, TypeLogement.APPARTEMENT),
+                logements.size()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PublicRegistrationSearchResponse searchPublicRegistrationLogements(
+            final String residenceCode,
+            final String numero,
+            final String immeuble
+    ) {
+        Residence residence = residenceService.getRequiredResidenceByCode(normalizeResidenceCode(residenceCode));
+        List<Logement> logements = logementRepository.findAllByResidence_IdOrderByNumeroAsc(residence.getId());
+        PublicRegistrationCompositionType compositionType = resolveCompositionType(logements);
+        String normalizedNumero = normalizeOptionalValue(numero);
+        String normalizedImmeuble = normalizeOptionalValue(immeuble);
+        List<PublicRegistrationFilterField> allowedFilters = resolveAllowedFilters(compositionType);
+
+        if (!allowedFilters.contains(PublicRegistrationFilterField.IMMEUBLE)) {
+            normalizedImmeuble = null;
+        }
+        final String numeroFilter = normalizedNumero;
+        final String immeubleFilter = normalizedImmeuble;
+
+        Predicate<Logement> filter = logement -> true;
+        if (numeroFilter != null) {
+            filter = filter.and(logement -> containsIgnoreCase(logement.getNumero(), numeroFilter));
+        }
+        if (immeubleFilter != null) {
+            filter = filter.and(logement -> containsIgnoreCase(logement.getImmeuble(), immeubleFilter));
+        }
+
+        int maxOccupants = residence.getMaxOccupantsParLogement();
+        List<PublicRegistrationLogementResponse> items = sortForPublicRegistration(logements).stream()
+                .filter(filter)
+                .map(logement -> PublicRegistrationLogementResponse.fromEntity(
+                        logement,
+                        countActiveOccupants(logement.getId()),
+                        maxOccupants
+                ))
+                .toList();
+
+        return new PublicRegistrationSearchResponse(
+                residence.getId(),
+                residence.getCode(),
+                compositionType,
+                allowedFilters,
+                numeroFilter,
+                immeubleFilter,
+                items.size(),
+                items
+        );
     }
 
     @Transactional(readOnly = true)
@@ -288,6 +359,59 @@ public class LogementService {
             throw new IllegalArgumentException("Residence code must not be blank");
         }
         return residenceCode.trim().toUpperCase();
+    }
+
+    private List<Logement> sortForPublicRegistration(final List<Logement> logements) {
+        return logements.stream()
+                .sorted(Comparator
+                        .comparing(Logement::getTypeLogement, Comparator.nullsLast(Enum::compareTo))
+                        .thenComparing(logement -> normalizeForComparison(logement.getImmeuble()), Comparator.nullsLast(String::compareTo))
+                        .thenComparing(logement -> normalizeForComparison(logement.getNumero()), Comparator.nullsLast(String::compareTo))
+                        .thenComparing(Logement::getId, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+    }
+
+    private PublicRegistrationCompositionType resolveCompositionType(final List<Logement> logements) {
+        boolean hasMaison = containsType(logements, TypeLogement.MAISON);
+        boolean hasAppartement = containsType(logements, TypeLogement.APPARTEMENT);
+        if (!hasMaison && !hasAppartement) {
+            return PublicRegistrationCompositionType.EMPTY;
+        }
+        if (hasMaison && hasAppartement) {
+            return PublicRegistrationCompositionType.MIXED;
+        }
+        if (hasMaison) {
+            return PublicRegistrationCompositionType.MAISON_ONLY;
+        }
+        return PublicRegistrationCompositionType.APPARTEMENT_ONLY;
+    }
+
+    private boolean containsType(final List<Logement> logements, final TypeLogement typeLogement) {
+        return logements.stream().anyMatch(logement -> logement.getTypeLogement() == typeLogement);
+    }
+
+    private List<PublicRegistrationFilterField> resolveAllowedFilters(
+            final PublicRegistrationCompositionType compositionType
+    ) {
+        return switch (compositionType) {
+            case MAISON_ONLY -> List.of(PublicRegistrationFilterField.NUMERO);
+            case APPARTEMENT_ONLY, MIXED -> List.of(
+                    PublicRegistrationFilterField.IMMEUBLE,
+                    PublicRegistrationFilterField.NUMERO
+            );
+            case EMPTY -> List.of();
+        };
+    }
+
+    private boolean containsIgnoreCase(final String source, final String expectedFragment) {
+        if (source == null || expectedFragment == null) {
+            return false;
+        }
+        return normalizeForComparison(source).contains(normalizeForComparison(expectedFragment));
+    }
+
+    private String normalizeForComparison(final String value) {
+        return value == null ? null : value.trim().toUpperCase();
     }
 
     private Logement buildLogement(

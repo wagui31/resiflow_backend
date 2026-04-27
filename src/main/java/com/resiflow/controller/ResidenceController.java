@@ -2,6 +2,7 @@ package com.resiflow.controller;
 
 import com.resiflow.dto.CreateResidenceRequest;
 import com.resiflow.dto.DashboardResponse;
+import com.resiflow.dto.ResidenceAlertViewResponse;
 import com.resiflow.dto.ResidenceExpenseCategoryStatsResponse;
 import com.resiflow.dto.ResidenceImpayeResponse;
 import com.resiflow.dto.ResidencePaymentHousingStatsResponse;
@@ -9,10 +10,12 @@ import com.resiflow.dto.ResidenceParticipantsCountResponse;
 import com.resiflow.dto.ResidenceResponse;
 import com.resiflow.dto.ResidenceViewResponse;
 import com.resiflow.dto.StatsResponse;
+import com.resiflow.dto.UpdateResidenceAdminSettingsRequest;
 import com.resiflow.entity.Residence;
 import com.resiflow.security.AuthenticatedUser;
 import com.resiflow.service.DashboardService;
 import com.resiflow.service.PaiementService;
+import com.resiflow.service.ResidenceAccessService;
 import com.resiflow.service.ResidenceService;
 import com.resiflow.service.ResidenceViewService;
 import com.resiflow.service.StatsService;
@@ -42,6 +45,7 @@ public class ResidenceController {
     private final StatsService statsService;
     private final DepenseService depenseService;
     private final ResidenceViewService residenceViewService;
+    private final ResidenceAccessService residenceAccessService;
 
     public ResidenceController(
             final ResidenceService residenceService,
@@ -49,7 +53,8 @@ public class ResidenceController {
             final PaiementService paiementService,
             final StatsService statsService,
             final DepenseService depenseService,
-            final ResidenceViewService residenceViewService
+            final ResidenceViewService residenceViewService,
+            final ResidenceAccessService residenceAccessService
     ) {
         this.residenceService = residenceService;
         this.dashboardService = dashboardService;
@@ -57,6 +62,7 @@ public class ResidenceController {
         this.statsService = statsService;
         this.depenseService = depenseService;
         this.residenceViewService = residenceViewService;
+        this.residenceAccessService = residenceAccessService;
     }
 
     @PostMapping
@@ -85,6 +91,17 @@ public class ResidenceController {
         return ResponseEntity.ok(dashboardService.getDashboard(residenceId, authenticatedUser));
     }
 
+    @GetMapping("/{residenceId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ResidenceResponse> getResidence(
+            @PathVariable final Long residenceId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        Residence residence = residenceAccessService.getResidenceForAdmin(residenceId, authenticatedUser);
+        return ResponseEntity.ok(ResidenceResponse.fromResidence(residence));
+    }
+
     @GetMapping("/{residenceId}/housing-view")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ResidenceViewResponse> getHousingView(
@@ -94,6 +111,16 @@ public class ResidenceController {
     ) {
         AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
         return ResponseEntity.ok(residenceViewService.getResidenceView(residenceId, search, authenticatedUser));
+    }
+
+    @GetMapping("/{residenceId}/housing-alerts")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ResidenceAlertViewResponse> getHousingAlerts(
+            @PathVariable final Long residenceId,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        return ResponseEntity.ok(residenceViewService.getResidenceAlertView(residenceId, authenticatedUser));
     }
 
     @GetMapping("/{residenceId}/impayes")
@@ -169,6 +196,19 @@ public class ResidenceController {
             @RequestBody final CreateResidenceRequest request
     ) {
         Residence residence = residenceService.updateResidence(residenceId, request);
+        return ResponseEntity.ok(ResidenceResponse.fromResidence(residence));
+    }
+
+    @PutMapping("/{residenceId}/admin-settings")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ResidenceResponse> updateResidenceAdminSettings(
+            @PathVariable final Long residenceId,
+            @RequestBody final UpdateResidenceAdminSettingsRequest request,
+            final Authentication authentication
+    ) {
+        AuthenticatedUser authenticatedUser = (AuthenticatedUser) authentication.getPrincipal();
+        residenceAccessService.getResidenceForAdmin(residenceId, authenticatedUser);
+        Residence residence = residenceService.updateResidenceAdminSettings(residenceId, request);
         return ResponseEntity.ok(ResidenceResponse.fromResidence(residence));
     }
 
