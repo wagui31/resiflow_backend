@@ -25,9 +25,11 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class VoteServiceTest {
 
@@ -41,7 +43,8 @@ class VoteServiceTest {
                 voteUtilisateurRepositoryProxy(savedVoteRef, Map.of(VoteChoix.POUR, 0L, VoteChoix.CONTRE, 0L, VoteChoix.NEUTRE, 0L), false),
                 userRepositoryProxy(List.of(actor)),
                 residenceAccessServiceStub(actor),
-                depenseServiceStub()
+                depenseServiceStub(),
+                mock(ApplicationEventPublisher.class)
         );
 
         VoteActionRequest request = new VoteActionRequest();
@@ -63,7 +66,8 @@ class VoteServiceTest {
                 voteUtilisateurRepositoryProxy(new AtomicReference<>(), Map.of(VoteChoix.POUR, 0L, VoteChoix.CONTRE, 0L, VoteChoix.NEUTRE, 0L), false),
                 userRepositoryProxy(List.of(buildUser(21L, 7L))),
                 residenceAccessServiceStub(buildUser(21L, 7L)),
-                depenseServiceStub()
+                depenseServiceStub(),
+                mock(ApplicationEventPublisher.class)
         );
 
         VoteActionRequest request = new VoteActionRequest();
@@ -87,7 +91,8 @@ class VoteServiceTest {
                 ),
                 userRepositoryProxy(List.of(buildUser(21L, 7L))),
                 residenceAccessServiceStub(buildUser(21L, 7L)),
-                depenseServiceStub()
+                depenseServiceStub(),
+                mock(ApplicationEventPublisher.class)
         );
 
         VoteResultResponse result = voteService.getVoteResult(10L, new AuthenticatedUser(21L, "user@example.com", 7L, UserRole.USER));
@@ -115,7 +120,8 @@ class VoteServiceTest {
                 voteUtilisateurRepositoryProxy(new AtomicReference<>(), Map.of(), false, new AtomicBoolean(false), List.of(voteUtilisateur)),
                 userRepositoryProxy(List.of(buildUser(21L, 7L))),
                 residenceAccessServiceStub(buildUser(21L, 7L)),
-                depenseServiceStub()
+                depenseServiceStub(),
+                mock(ApplicationEventPublisher.class)
         );
 
         VoteDetailsResponse response = voteService.getVoteDetails(
@@ -142,7 +148,8 @@ class VoteServiceTest {
                 voteUtilisateurRepositoryProxy(new AtomicReference<>(), Map.of(), true, deleted),
                 userRepositoryProxy(List.of(buildUser(99L, 7L))),
                 residenceAccessServiceStub(buildUser(99L, 7L)),
-                depenseServiceStub()
+                depenseServiceStub(),
+                mock(ApplicationEventPublisher.class)
         );
 
         Vote returnedVote = voteService.removeUserVote(10L, 21L, new AuthenticatedUser(99L, "admin@example.com", 7L, UserRole.ADMIN));
@@ -159,7 +166,8 @@ class VoteServiceTest {
                 voteUtilisateurRepositoryProxy(new AtomicReference<>(), Map.of(), true, new AtomicBoolean(false)),
                 userRepositoryProxy(List.of(buildUser(99L, 7L))),
                 residenceAccessServiceStub(buildUser(99L, 7L)),
-                depenseServiceStub()
+                depenseServiceStub(),
+                mock(ApplicationEventPublisher.class)
         );
 
         assertThatThrownBy(() -> voteService.removeUserVote(
@@ -179,7 +187,8 @@ class VoteServiceTest {
                 voteUtilisateurRepositoryProxy(new AtomicReference<>(), Map.of(), false, new AtomicBoolean(false)),
                 userRepositoryProxy(List.of(buildUser(99L, 7L))),
                 residenceAccessServiceStub(buildUser(99L, 7L)),
-                depenseServiceStub()
+                depenseServiceStub(),
+                mock(ApplicationEventPublisher.class)
         );
 
         assertThatThrownBy(() -> voteService.removeUserVote(
@@ -212,7 +221,8 @@ class VoteServiceTest {
                 ),
                 userRepositoryProxy(List.of(currentUser, secondHousingUser, thirdHousingUser)),
                 residenceAccessServiceStub(currentUser),
-                depenseServiceStub()
+                depenseServiceStub(),
+                mock(ApplicationEventPublisher.class)
         );
 
         VoteOverviewResponse response = voteService.getVoteOverview(

@@ -7,6 +7,7 @@ import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
 import com.resiflow.security.AuthenticatedUser;
+import com.resiflow.service.PasswordPolicyValidator;
 import com.resiflow.service.UserService;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +31,16 @@ class AdminUserControllerTest {
 
     @BeforeEach
     void setUp() {
-        UserService userService = new UserService(null, new BCryptPasswordEncoder(), null, null, null, null) {
+        UserService userService = new UserService(
+                null,
+                new BCryptPasswordEncoder(),
+                new PasswordPolicyValidator(),
+                null,
+                null,
+                null,
+                null,
+                null
+        ) {
             @Override
             public User updateUserRole(
                     final Long userId,

@@ -1,5 +1,6 @@
 package com.resiflow;
 
+import com.resiflow.repository.PasswordResetRequestRepository;
 import com.resiflow.repository.UserRepository;
 import java.lang.reflect.Proxy;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,28 @@ class ResiflowApplicationTests {
 					(proxy, method, args) -> {
 						if ("toString".equals(method.getName())) {
 							return "UserRepositoryTestProxy";
+						}
+						if ("hashCode".equals(method.getName())) {
+							return System.identityHashCode(proxy);
+						}
+						if ("equals".equals(method.getName())) {
+							return proxy == args[0];
+						}
+						throw new UnsupportedOperationException("Unsupported method: " + method.getName());
+					});
+		}
+
+		@Bean
+		PasswordResetRequestRepository passwordResetRequestRepository() {
+			return (PasswordResetRequestRepository) Proxy.newProxyInstance(
+					PasswordResetRequestRepository.class.getClassLoader(),
+					new Class<?>[]{PasswordResetRequestRepository.class},
+					(proxy, method, args) -> {
+						if ("deleteByCreatedAtBefore".equals(method.getName())) {
+							return 0L;
+						}
+						if ("toString".equals(method.getName())) {
+							return "PasswordResetRequestRepositoryTestProxy";
 						}
 						if ("hashCode".equals(method.getName())) {
 							return System.identityHashCode(proxy);

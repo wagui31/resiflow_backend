@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -112,7 +113,7 @@ class DepenseControllerTest {
             }
         };
 
-        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null);
+        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null, (ApplicationEventPublisher) null);
 
         mockMvc = MockMvcBuilders.standaloneSetup(new DepenseController(depenseService, paiementService))
                 .setControllerAdvice(new GlobalExceptionHandler())

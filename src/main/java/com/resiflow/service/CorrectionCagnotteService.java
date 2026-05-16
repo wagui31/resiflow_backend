@@ -4,12 +4,15 @@ import com.resiflow.dto.CorrectionCagnotteResponse;
 import com.resiflow.dto.CreateCorrectionCagnotteRequest;
 import com.resiflow.dto.CreateCorrectionCagnotteResponse;
 import com.resiflow.entity.CorrectionCagnotte;
+import com.resiflow.entity.NotificationType;
+import com.resiflow.entity.RelatedEntityType;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.TransactionCagnotte;
 import com.resiflow.entity.User;
 import com.resiflow.repository.CorrectionCagnotteRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,17 +23,20 @@ public class CorrectionCagnotteService {
     private final ResidenceAccessService residenceAccessService;
     private final CagnotteService cagnotteService;
     private final TransactionCagnotteService transactionCagnotteService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public CorrectionCagnotteService(
             final CorrectionCagnotteRepository correctionCagnotteRepository,
             final ResidenceAccessService residenceAccessService,
             final CagnotteService cagnotteService,
-            final TransactionCagnotteService transactionCagnotteService
+            final TransactionCagnotteService transactionCagnotteService,
+            final ApplicationEventPublisher eventPublisher
     ) {
         this.correctionCagnotteRepository = correctionCagnotteRepository;
         this.residenceAccessService = residenceAccessService;
         this.cagnotteService = cagnotteService;
         this.transactionCagnotteService = transactionCagnotteService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -61,6 +67,17 @@ public class CorrectionCagnotteService {
 
         CorrectionCagnotte savedCorrection = correctionCagnotteRepository.save(correction);
         TransactionCagnotte transaction = transactionCagnotteService.createCorrectionTransaction(savedCorrection);
+        eventPublisher.publishEvent(new NotificationDispatchEvent(
+                residence.getId(),
+                NotificationType.CAGNOTTE_CORRECTION_CREATED,
+                "Correction de cagnotte",
+                "Une correction de cagnotte a ete enregistree. Motif : " + savedCorrection.getMotif() + ".",
+                RelatedEntityType.CAGNOTTE_CORRECTION,
+                savedCorrection.getId(),
+                actor.getId(),
+                NotificationAudience.ACTIVE_RESIDENTS,
+                null
+        ));
         return CreateCorrectionCagnotteResponse.of(CorrectionCagnotteResponse.fromEntity(savedCorrection), transaction);
     }
 

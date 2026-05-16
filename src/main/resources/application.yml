@@ -49,6 +49,14 @@ app:
   jwt:
     secret: ${APP_JWT_SECRET:Zm9yLWRldmVsb3BtZW50LW9ubHktcmVzaWZsb3ctand0LXNlY3JldC1rZXktMzItYnl0ZXM=}
     expiration-ms: ${APP_JWT_EXPIRATION_MS:3600000}
+  auth:
+    password-reset:
+      code-expiration-minutes: ${APP_AUTH_PASSWORD_RESET_CODE_EXPIRATION_MINUTES:60}
+      reset-session-expiration-minutes: ${APP_AUTH_PASSWORD_RESET_SESSION_EXPIRATION_MINUTES:30}
+      max-attempts: ${APP_AUTH_PASSWORD_RESET_MAX_ATTEMPTS:5}
+      max-resends: ${APP_AUTH_PASSWORD_RESET_MAX_RESENDS:3}
+      resend-cooldown-seconds: ${APP_AUTH_PASSWORD_RESET_RESEND_COOLDOWN_SECONDS:60}
+      cleanup-retention-days: ${APP_AUTH_PASSWORD_RESET_CLEANUP_RETENTION_DAYS:7}
   mail:
     enabled: ${APP_MAIL_ENABLED:false}
     from: ${APP_MAIL_FROM:noreply@resiflow.local}
@@ -57,6 +65,12 @@ app:
     site-key: ${APP_CAPTCHA_SITE_KEY:}
     secret-key: ${APP_CAPTCHA_SECRET_KEY:}
     verify-url: ${APP_CAPTCHA_VERIFY_URL:https://challenges.cloudflare.com/turnstile/v0/siteverify}
+  push:
+    enabled: ${APP_PUSH_ENABLED:false}
+    firebase:
+      project-id: ${APP_PUSH_FIREBASE_PROJECT_ID:}
+      credentials-file: ${APP_PUSH_FIREBASE_CREDENTIALS_FILE:}
+      credentials-base64: ${APP_PUSH_FIREBASE_CREDENTIALS_BASE64:}
 
 server:
   address: 0.0.0.0

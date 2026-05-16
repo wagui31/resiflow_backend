@@ -12,6 +12,7 @@ import com.resiflow.repository.CorrectionCagnotteRepository;
 import com.resiflow.security.AuthenticatedUser;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,12 +30,14 @@ class CorrectionCagnotteServiceTest {
         ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
         CagnotteService cagnotteService = mock(CagnotteService.class);
         TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         CorrectionCagnotteService service = new CorrectionCagnotteService(
                 correctionRepository,
                 residenceAccessService,
                 cagnotteService,
-                transactionCagnotteService
+                transactionCagnotteService,
+                eventPublisher
         );
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(9L, "admin@example.com", 7L, UserRole.ADMIN);
@@ -83,12 +86,14 @@ class CorrectionCagnotteServiceTest {
         ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
         CagnotteService cagnotteService = mock(CagnotteService.class);
         TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         CorrectionCagnotteService service = new CorrectionCagnotteService(
                 correctionRepository,
                 residenceAccessService,
                 cagnotteService,
-                transactionCagnotteService
+                transactionCagnotteService,
+                eventPublisher
         );
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(9L, "admin@example.com", 7L, UserRole.ADMIN);
@@ -130,12 +135,14 @@ class CorrectionCagnotteServiceTest {
         ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
         CagnotteService cagnotteService = mock(CagnotteService.class);
         TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         CorrectionCagnotteService service = new CorrectionCagnotteService(
                 correctionRepository,
                 residenceAccessService,
                 cagnotteService,
-                transactionCagnotteService
+                transactionCagnotteService,
+                eventPublisher
         );
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(9L, "admin@example.com", 7L, UserRole.ADMIN);
@@ -163,12 +170,14 @@ class CorrectionCagnotteServiceTest {
         ResidenceAccessService residenceAccessService = mock(ResidenceAccessService.class);
         CagnotteService cagnotteService = mock(CagnotteService.class);
         TransactionCagnotteService transactionCagnotteService = mock(TransactionCagnotteService.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         CorrectionCagnotteService service = new CorrectionCagnotteService(
                 correctionRepository,
                 residenceAccessService,
                 cagnotteService,
-                transactionCagnotteService
+                transactionCagnotteService,
+                eventPublisher
         );
 
         CreateCorrectionCagnotteRequest request = new CreateCorrectionCagnotteRequest();

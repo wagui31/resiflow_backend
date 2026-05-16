@@ -1,6 +1,10 @@
 package com.resiflow.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.resiflow.dto.ForgotPasswordRequestCodeRequest;
+import com.resiflow.dto.ForgotPasswordRequestCodeResponse;
+import com.resiflow.dto.ForgotPasswordVerifyCodeRequest;
+import com.resiflow.dto.ForgotPasswordVerifyCodeResponse;
 import com.resiflow.dto.LoginRequest;
 import com.resiflow.dto.LoginResponse;
 import com.resiflow.dto.RegisterRequest;
@@ -13,6 +17,7 @@ import com.resiflow.entity.UserStatus;
 import com.resiflow.service.AuthService;
 import com.resiflow.service.CaptchaVerificationService;
 import com.resiflow.service.EmailAlreadyUsedException;
+import com.resiflow.service.ForgotPasswordService;
 import com.resiflow.service.InvalidCredentialsException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -46,7 +51,8 @@ class AuthControllerTest {
                 null,
                 new BCryptPasswordEncoder(),
                 new CaptchaVerificationService(new com.resiflow.config.CaptchaProperties(false, "", "", ""), RestClient.builder().build()),
-                noOpEventPublisher()
+                noOpEventPublisher(),
+                null
         ) {
             @Override
             public LoginResponse login(final LoginRequest request) {
@@ -107,8 +113,18 @@ class AuthControllerTest {
                 return user;
             }
         };
+        ForgotPasswordService forgotPasswordService = org.mockito.Mockito.mock(ForgotPasswordService.class);
+        org.mockito.Mockito.when(forgotPasswordService.requestCode(org.mockito.ArgumentMatchers.any(ForgotPasswordRequestCodeRequest.class)))
+                .thenReturn(new ForgotPasswordRequestCodeResponse(
+                        "Si un compte existe pour cet email, un code de reinitialisation a ete envoye."
+                ));
+        org.mockito.Mockito.when(forgotPasswordService.verifyCode(org.mockito.ArgumentMatchers.any(ForgotPasswordVerifyCodeRequest.class)))
+                .thenReturn(new ForgotPasswordVerifyCodeResponse(
+                        "reset-session-token",
+                        LocalDateTime.of(2026, 5, 16, 12, 0)
+                ));
 
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService, forgotPasswordService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -178,5 +194,42 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.logement.active").value(false))
                 .andExpect(jsonPath("$.role").value("USER"))
                 .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void forgotPasswordRequestCodeReturnsGenericSuccessMessage() throws Exception {
+        mockMvc.perform(post("/api/auth/forgot-password/request-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"resident@example.com"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Si un compte existe pour cet email, un code de reinitialisation a ete envoye."));
+    }
+
+    @Test
+    void forgotPasswordVerifyCodeReturnsResetSessionToken() throws Exception {
+        mockMvc.perform(post("/api/auth/forgot-password/verify-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"resident@example.com","code":"123456"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resetSessionToken").value("reset-session-token"))
+                .andExpect(jsonPath("$.resetSessionExpiresAt[0]").value(2026))
+                .andExpect(jsonPath("$.resetSessionExpiresAt[1]").value(5))
+                .andExpect(jsonPath("$.resetSessionExpiresAt[2]").value(16))
+                .andExpect(jsonPath("$.resetSessionExpiresAt[3]").value(12))
+                .andExpect(jsonPath("$.resetSessionExpiresAt[4]").value(0));
+    }
+
+    @Test
+    void forgotPasswordResetReturnsNoContent() throws Exception {
+        mockMvc.perform(post("/api/auth/forgot-password/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"resetSessionToken":"reset-session-token","newPassword":"NewPass1!","confirmPassword":"NewPass1!"}
+                                """))
+                .andExpect(status().isNoContent());
     }
 }

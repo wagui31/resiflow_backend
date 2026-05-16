@@ -46,6 +46,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/forgot-password/request-code").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/request-code").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/forgot-password/verify-code").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/verify-code").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/forgot-password/reset-password").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/reset-password").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

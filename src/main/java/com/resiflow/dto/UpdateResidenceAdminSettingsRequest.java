@@ -1,0 +1,52 @@
+package com.resiflow.dto;
+
+import java.math.BigDecimal;
+
+public class UpdateResidenceAdminSettingsRequest {
+
+    private String name;
+    private String address;
+    private String code;
+    private BigDecimal montantMensuel;
+    private Integer maxOccupantsParLogement;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(final String name) {
+        this.name = name;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(final String address) {
+        this.address = address;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(final String code) {
+        this.code = code;
+    }
+
+    public BigDecimal getMontantMensuel() {
+        return montantMensuel;
+    }
+
+    public void setMontantMensuel(final BigDecimal montantMensuel) {
+        this.montantMensuel = montantMensuel;
+    }
+
+    public Integer getMaxOccupantsParLogement() {
+        return maxOccupantsParLogement;
+    }
+
+    public void setMaxOccupantsParLogement(final Integer maxOccupantsParLogement) {
+        this.maxOccupantsParLogement = maxOccupantsParLogement;
+    }
+}

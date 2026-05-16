@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class UserServiceTest {
 
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordPolicyValidator passwordPolicyValidator = new PasswordPolicyValidator();
 
     @Test
     void createAdminCreatesActiveResidenceAdmin() {
@@ -37,10 +38,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(savedUserRef, Optional.empty(), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         CreateAdminRequest request = new CreateAdminRequest();
@@ -69,10 +72,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(new AtomicReference<>(), Optional.empty(), List.of(pendingUser), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         List<User> result = userService.getPendingUsers(new AuthenticatedUser(10L, "admin@example.com", 7L, UserRole.ADMIN));
@@ -88,10 +93,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(savedUserRef, Optional.of(pendingUser), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisher
+                eventPublisher,
+                pushTokenServiceStub()
         );
 
         User result = userService.approveUser(
@@ -116,10 +123,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(new AtomicReference<>(), Optional.of(activeUser), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         assertThatThrownBy(() -> userService.approveUser(
@@ -137,10 +146,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(new AtomicReference<>(), Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         assertThatThrownBy(() -> userService.rejectUser(
@@ -160,10 +171,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(savedUserRef, Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList(), 2L),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisher
+                eventPublisher,
+                pushTokenServiceStub()
         );
 
         User result = userService.archiveUser(
@@ -185,10 +198,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(new AtomicReference<>(), Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList(), 1L),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         assertThatThrownBy(() -> userService.archiveUser(
@@ -208,10 +223,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(savedUserRef, Optional.of(archivedUser), Collections.emptyList(), Collections.emptyList(), 0L),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisher
+                eventPublisher,
+                pushTokenServiceStub()
         );
 
         User result = userService.reactivateUser(
@@ -234,10 +251,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(savedUserRef, Optional.of(rejectedUser), Collections.emptyList(), Collections.emptyList(), 0L),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         User result = userService.reactivateUser(
@@ -257,10 +276,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(savedUserRef, Optional.of(resident), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         User result = userService.updateUserRole(
@@ -279,10 +300,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(new AtomicReference<>(), Optional.of(self), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         assertThatThrownBy(() -> userService.updateUserRole(
@@ -300,10 +323,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(new AtomicReference<>(), Optional.of(managedAdmin), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
 
         assertThatThrownBy(() -> userService.updateUserRole(
@@ -323,10 +348,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(savedUserRef, Optional.of(managedUser), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
         UpdateCurrentUserPasswordRequest request = new UpdateCurrentUserPasswordRequest();
         request.setCurrentPassword("CurrentPass1!");
@@ -350,10 +377,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(new AtomicReference<>(), Optional.of(managedUser), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
         UpdateCurrentUserPasswordRequest request = new UpdateCurrentUserPasswordRequest();
         request.setCurrentPassword("WrongPass1!");
@@ -373,10 +402,12 @@ class UserServiceTest {
         UserService userService = new UserService(
                 repositoryProxy(new AtomicReference<>(), Optional.empty(), Collections.emptyList(), Collections.emptyList()),
                 passwordEncoder,
+                passwordPolicyValidator,
                 residenceServiceStub(),
                 logementServiceStub(),
                 paymentStatusServiceStub(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                pushTokenServiceStub()
         );
         UpdateCurrentUserPasswordRequest request = new UpdateCurrentUserPasswordRequest();
         request.setCurrentPassword("CurrentPass1!");
@@ -522,6 +553,18 @@ class UserServiceTest {
 
     private ApplicationEventPublisher eventPublisherNoOp() {
         return event -> {
+        };
+    }
+
+    private PushTokenService pushTokenServiceStub() {
+        return new PushTokenService(null, null) {
+            @Override
+            public void markAllTokensArchived(final Long userId) {
+            }
+
+            @Override
+            public void markAllTokensDeleted(final Long userId) {
+            }
         };
     }
 

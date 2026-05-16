@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -72,7 +73,7 @@ class ResidenceControllerTest {
                 return new DashboardResponse(BigDecimal.ZERO, 0L, 0L, BigDecimal.ZERO, List.of());
             }
         };
-        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null) {
+        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null, (ApplicationEventPublisher) null) {
             @Override
             public List<ResidenceImpayeResponse> getImpayesByResidence(
                     final Long residenceId,

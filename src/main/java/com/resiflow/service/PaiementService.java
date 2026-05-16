@@ -12,12 +12,14 @@ import com.resiflow.dto.PendingPaymentResponse;
 import com.resiflow.dto.ResidenceImpayeResponse;
 import com.resiflow.dto.UserPaiementHistoryResponse;
 import com.resiflow.entity.Depense;
+import com.resiflow.entity.NotificationType;
 import com.resiflow.entity.Logement;
 import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
 import com.resiflow.entity.PaymentMonth;
 import com.resiflow.entity.PaymentMonthStatus;
 import com.resiflow.entity.Residence;
+import com.resiflow.entity.RelatedEntityType;
 import com.resiflow.entity.StatutDepense;
 import com.resiflow.entity.StatutPaiement;
 import com.resiflow.entity.TypeDepense;
@@ -42,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +63,7 @@ public class PaiementService {
     private final DepenseService depenseService;
     private final LogementService logementService;
     private final LogementRepository logementRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PaiementService(
             final PaiementRepository paiementRepository,
@@ -70,7 +74,8 @@ public class PaiementService {
             final PaymentMonthRepository paymentMonthRepository,
             final DepenseService depenseService,
             final LogementService logementService,
-            final LogementRepository logementRepository
+            final LogementRepository logementRepository,
+            final ApplicationEventPublisher eventPublisher
     ) {
         this.paiementRepository = paiementRepository;
         this.residenceAccessService = residenceAccessService;
@@ -81,6 +86,7 @@ public class PaiementService {
         this.depenseService = depenseService;
         this.logementService = logementService;
         this.logementRepository = logementRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -144,6 +150,7 @@ public class PaiementService {
             transactionCagnotteService.createContributionTransaction(savedPaiement);
             syncPaymentMonths(savedPaiement);
         }
+        publishValidatedPaiementNotification(savedPaiement);
         return savedPaiement;
     }
 
@@ -154,7 +161,9 @@ public class PaiementService {
             throw new IllegalStateException("Only pending paiements can be validated");
         }
         paiement.setStatus(PaiementStatus.VALIDATED);
-        return paiementRepository.save(paiement);
+        Paiement savedPaiement = paiementRepository.save(paiement);
+        publishValidatedPaiementNotification(savedPaiement);
+        return savedPaiement;
     }
 
     @Transactional
@@ -549,7 +558,19 @@ public class PaiementService {
         paiement.setTypePaiement(TypePaiement.CAGNOTTE);
         paiement.setDepense(null);
         paiement.setDeleted(false);
-        return paiementRepository.save(paiement);
+        Paiement savedPaiement = paiementRepository.save(paiement);
+        eventPublisher.publishEvent(new NotificationDispatchEvent(
+                residence.getId(),
+                NotificationType.CAGNOTTE_PAYMENT_PENDING_ADMIN,
+                "Paiement cagnotte en attente",
+                "Un paiement cagnotte est en attente de validation pour le logement " + resolveLogementLabel(logement) + ".",
+                RelatedEntityType.PAIEMENT,
+                savedPaiement.getId(),
+                authenticatedUser == null ? null : authenticatedUser.userId(),
+                NotificationAudience.ADMINS,
+                null
+        ));
+        return savedPaiement;
     }
 
     private Paiement createDepensePartagePaiement(
@@ -577,7 +598,23 @@ public class PaiementService {
         paiement.setTypePaiement(TypePaiement.DEPENSE_PARTAGE);
         paiement.setDepense(depense);
         paiement.setDeleted(false);
-        return paiementRepository.save(paiement);
+        Paiement savedPaiement = paiementRepository.save(paiement);
+        if (autoValidate) {
+            publishValidatedPaiementNotification(savedPaiement);
+        } else {
+            eventPublisher.publishEvent(new NotificationDispatchEvent(
+                    depense.getResidence().getId(),
+                    NotificationType.SHARED_EXPENSE_PAYMENT_PENDING_ADMIN,
+                    "Paiement depense partagee en attente",
+                    "Un paiement lie a la depense partagee \"" + depense.getDescription() + "\" est en attente de validation.",
+                    RelatedEntityType.PAIEMENT,
+                    savedPaiement.getId(),
+                    authenticatedUser == null ? null : authenticatedUser.userId(),
+                    NotificationAudience.ADMINS,
+                    null
+            ));
+        }
+        return savedPaiement;
     }
 
     private Depense requireSharedDepense(final Long depenseId) {
@@ -631,6 +668,33 @@ public class PaiementService {
         }
         return userRepository.findByEmailAndResidence_IdAndStatus(normalizedEmail, authenticatedUser.residenceId(), UserStatus.ACTIVE)
                 .orElseThrow(() -> new NoSuchElementException("User not found in residence: " + normalizedEmail));
+    }
+
+    private void publishValidatedPaiementNotification(final Paiement paiement) {
+        String body = paiement.getTypePaiement() == TypePaiement.DEPENSE_PARTAGE
+                ? "Un paiement pour une depense partagee a ete valide."
+                : "Un paiement cagnotte a ete valide.";
+        eventPublisher.publishEvent(new NotificationDispatchEvent(
+                paiement.getResidence().getId(),
+                NotificationType.PAYMENT_VALIDATED,
+                "Paiement valide",
+                body,
+                RelatedEntityType.PAIEMENT,
+                paiement.getId(),
+                paiement.getCreePar() == null ? null : paiement.getCreePar().getId(),
+                NotificationAudience.ACTIVE_RESIDENTS,
+                null
+        ));
+    }
+
+    private String resolveLogementLabel(final Logement logement) {
+        if (logement == null) {
+            return "";
+        }
+        if (logement.getCodeInterne() != null && !logement.getCodeInterne().trim().isEmpty()) {
+            return logement.getCodeInterne().trim();
+        }
+        return logement.getNumero() == null ? "" : logement.getNumero().trim();
     }
 
     private void ensureAdmin(final AuthenticatedUser authenticatedUser) {

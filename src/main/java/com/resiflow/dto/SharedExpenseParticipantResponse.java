@@ -10,6 +10,7 @@ public class SharedExpenseParticipantResponse {
     private final BigDecimal montantDu;
     private final BigDecimal montantPaye;
     private final String statut;
+    private final boolean paiementEnAttente;
 
     public SharedExpenseParticipantResponse(
             final Long logementId,
@@ -17,7 +18,8 @@ public class SharedExpenseParticipantResponse {
             final String codeInterne,
             final BigDecimal montantDu,
             final BigDecimal montantPaye,
-            final String statut
+            final String statut,
+            final boolean paiementEnAttente
     ) {
         this.logementId = logementId;
         this.logementLabel = logementLabel;
@@ -25,6 +27,7 @@ public class SharedExpenseParticipantResponse {
         this.montantDu = montantDu;
         this.montantPaye = montantPaye;
         this.statut = statut;
+        this.paiementEnAttente = paiementEnAttente;
     }
 
     public Long getLogementId() {
@@ -49,5 +52,9 @@ public class SharedExpenseParticipantResponse {
 
     public String getStatut() {
         return statut;
+    }
+
+    public boolean isPaiementEnAttente() {
+        return paiementEnAttente;
     }
 }

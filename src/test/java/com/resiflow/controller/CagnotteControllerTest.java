@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -49,7 +50,7 @@ class CagnotteControllerTest {
             }
         };
 
-        CorrectionCagnotteService correctionCagnotteService = new CorrectionCagnotteService(null, null, null, null) {
+        CorrectionCagnotteService correctionCagnotteService = new CorrectionCagnotteService(null, null, null, null, (ApplicationEventPublisher) null) {
             @Override
             public CreateCorrectionCagnotteResponse createCorrection(
                     final Long residenceId,

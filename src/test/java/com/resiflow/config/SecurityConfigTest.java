@@ -22,6 +22,7 @@ import com.resiflow.security.RestAuthenticationEntryPoint;
 import com.resiflow.service.AuthService;
 import com.resiflow.service.DashboardService;
 import com.resiflow.service.DepenseService;
+import com.resiflow.service.ForgotPasswordService;
 import com.resiflow.service.LogementService;
 import com.resiflow.service.PaiementService;
 import com.resiflow.service.ResidenceAccessService;
@@ -81,6 +82,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private ForgotPasswordService forgotPasswordService;
 
     @MockitoBean
     private UserService userService;
@@ -149,6 +153,22 @@ class SecurityConfigTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void forgotPasswordRequestCodeEndpointIsPublic() throws Exception {
+        when(forgotPasswordService.requestCode(any()))
+                .thenReturn(new com.resiflow.dto.ForgotPasswordRequestCodeResponse(
+                        "Si un compte existe pour cet email, un code de reinitialisation a ete envoye."
+                ));
+
+        mockMvc.perform(post("/api/auth/forgot-password/request-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"resident@example.com"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").isNotEmpty());
     }
 
     @Test

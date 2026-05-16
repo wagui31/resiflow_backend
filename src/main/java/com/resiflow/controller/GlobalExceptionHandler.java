@@ -7,6 +7,10 @@ import com.resiflow.service.CaptchaValidationException;
 import com.resiflow.service.EmailAlreadyUsedException;
 import com.resiflow.service.InvalidCredentialsException;
 import com.resiflow.service.InvalidResidenceCodeException;
+import com.resiflow.service.PasswordResetCodeExpiredException;
+import com.resiflow.service.PasswordResetCodeInvalidException;
+import com.resiflow.service.PasswordResetRateLimitException;
+import com.resiflow.service.PasswordResetSessionInvalidException;
 import java.util.NoSuchElementException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +47,38 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleInvalidCredentialsException(final InvalidCredentialsException exception) {
         LOGGER.warn("Authentication failed: {}", exception.getMessage());
         return buildResponse(HttpStatus.UNAUTHORIZED, ApiErrorCode.INVALID_CREDENTIALS, exception.getMessage());
+    }
+
+    @ExceptionHandler(PasswordResetCodeInvalidException.class)
+    public ResponseEntity<ApiErrorResponse> handlePasswordResetCodeInvalidException(
+            final PasswordResetCodeInvalidException exception
+    ) {
+        LOGGER.warn("Password reset code invalid: {}", exception.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.PASSWORD_RESET_CODE_INVALID, exception.getMessage());
+    }
+
+    @ExceptionHandler(PasswordResetCodeExpiredException.class)
+    public ResponseEntity<ApiErrorResponse> handlePasswordResetCodeExpiredException(
+            final PasswordResetCodeExpiredException exception
+    ) {
+        LOGGER.warn("Password reset code expired: {}", exception.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.PASSWORD_RESET_CODE_EXPIRED, exception.getMessage());
+    }
+
+    @ExceptionHandler(PasswordResetRateLimitException.class)
+    public ResponseEntity<ApiErrorResponse> handlePasswordResetRateLimitException(
+            final PasswordResetRateLimitException exception
+    ) {
+        LOGGER.warn("Password reset rate limited: {}", exception.getMessage());
+        return buildResponse(HttpStatus.TOO_MANY_REQUESTS, ApiErrorCode.PASSWORD_RESET_RATE_LIMITED, exception.getMessage());
+    }
+
+    @ExceptionHandler(PasswordResetSessionInvalidException.class)
+    public ResponseEntity<ApiErrorResponse> handlePasswordResetSessionInvalidException(
+            final PasswordResetSessionInvalidException exception
+    ) {
+        LOGGER.warn("Password reset session invalid: {}", exception.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.PASSWORD_RESET_SESSION_INVALID, exception.getMessage());
     }
 
     @ExceptionHandler(AccountStatusException.class)

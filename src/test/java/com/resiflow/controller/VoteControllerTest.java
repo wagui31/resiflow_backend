@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -29,7 +30,7 @@ class VoteControllerTest {
 
     @BeforeEach
     void setUp() {
-        VoteService voteService = new VoteService(null, null, null, null, null) {
+        VoteService voteService = new VoteService(null, null, null, null, null, (ApplicationEventPublisher) null) {
             @Override
             public List<VoteOverviewResponse> getVoteOverviewsByResidence(
                     final Long residenceId,

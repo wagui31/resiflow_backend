@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,6 +40,7 @@ class DepenseServiceTest {
         UserRepository userRepository = mock(UserRepository.class);
         PaiementRepository paiementRepository = mock(PaiementRepository.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         DepenseService depenseService = new DepenseService(
                 depenseRepository,
@@ -47,7 +49,8 @@ class DepenseServiceTest {
                 transactionCagnotteService,
                 userRepository,
                 paiementRepository,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         CreateDepenseRequest request = new CreateDepenseRequest();
@@ -75,6 +78,7 @@ class DepenseServiceTest {
         UserRepository userRepository = mock(UserRepository.class);
         PaiementRepository paiementRepository = mock(PaiementRepository.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         DepenseService depenseService = new DepenseService(
                 depenseRepository,
@@ -83,7 +87,8 @@ class DepenseServiceTest {
                 transactionCagnotteService,
                 userRepository,
                 paiementRepository,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         CreateDepenseRequest request = new CreateDepenseRequest();
@@ -129,6 +134,7 @@ class DepenseServiceTest {
         UserRepository userRepository = mock(UserRepository.class);
         PaiementRepository paiementRepository = mock(PaiementRepository.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         DepenseService depenseService = new DepenseService(
                 depenseRepository,
@@ -137,7 +143,8 @@ class DepenseServiceTest {
                 transactionCagnotteService,
                 userRepository,
                 paiementRepository,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         CreateDepenseRequest request = new CreateDepenseRequest();
@@ -177,6 +184,7 @@ class DepenseServiceTest {
         UserRepository userRepository = mock(UserRepository.class);
         PaiementRepository paiementRepository = mock(PaiementRepository.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         DepenseService depenseService = new DepenseService(
                 depenseRepository,
@@ -185,7 +193,8 @@ class DepenseServiceTest {
                 transactionCagnotteService,
                 userRepository,
                 paiementRepository,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         CreateDepenseRequest request = new CreateDepenseRequest();
@@ -229,6 +238,7 @@ class DepenseServiceTest {
         UserRepository userRepository = mock(UserRepository.class);
         PaiementRepository paiementRepository = mock(PaiementRepository.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         DepenseService depenseService = new DepenseService(
                 depenseRepository,
@@ -237,7 +247,8 @@ class DepenseServiceTest {
                 transactionCagnotteService,
                 userRepository,
                 paiementRepository,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         Residence residence = new Residence();
@@ -273,6 +284,7 @@ class DepenseServiceTest {
         UserRepository userRepository = mock(UserRepository.class);
         PaiementRepository paiementRepository = mock(PaiementRepository.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         DepenseService depenseService = new DepenseService(
                 depenseRepository,
@@ -281,7 +293,8 @@ class DepenseServiceTest {
                 transactionCagnotteService,
                 userRepository,
                 paiementRepository,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         Residence residence = new Residence();

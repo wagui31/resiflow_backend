@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,7 +41,7 @@ class PaiementControllerTest {
 
     @BeforeEach
     void setUp() {
-        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null) {
+        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null, (ApplicationEventPublisher) null) {
             @Override
             public Paiement createPaiement(final CreatePaiementRequest request, final AuthenticatedUser authenticatedUser) {
                 return buildPaiement(42L, PaiementStatus.PENDING, 15L);

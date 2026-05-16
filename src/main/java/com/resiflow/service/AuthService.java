@@ -2,8 +2,11 @@ package com.resiflow.service;
 
 import com.resiflow.dto.LoginRequest;
 import com.resiflow.dto.LoginResponse;
+import com.resiflow.dto.LogoutRequest;
 import com.resiflow.dto.RegisterRequest;
 import com.resiflow.dto.ApiErrorCode;
+import com.resiflow.entity.NotificationType;
+import com.resiflow.entity.RelatedEntityType;
 import com.resiflow.entity.Logement;
 import com.resiflow.entity.User;
 import com.resiflow.entity.UserRole;
@@ -35,6 +38,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final CaptchaVerificationService captchaVerificationService;
     private final ApplicationEventPublisher eventPublisher;
+    private final PushTokenService pushTokenService;
 
     public AuthService(
             final UserRepository userRepository,
@@ -43,7 +47,8 @@ public class AuthService {
             final JwtService jwtService,
             final PasswordEncoder passwordEncoder,
             final CaptchaVerificationService captchaVerificationService,
-            final ApplicationEventPublisher eventPublisher
+            final ApplicationEventPublisher eventPublisher,
+            final PushTokenService pushTokenService
     ) {
         this.userRepository = userRepository;
         this.residenceService = residenceService;
@@ -52,6 +57,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.captchaVerificationService = captchaVerificationService;
         this.eventPublisher = eventPublisher;
+        this.pushTokenService = pushTokenService;
     }
 
     public LoginResponse login(final LoginRequest request) {
@@ -152,6 +158,17 @@ public class AuthService {
         }
 
         eventPublisher.publishEvent(new RegistrationCompletedEvent(savedUser.getResidenceId(), savedUser.getEmail()));
+        eventPublisher.publishEvent(new NotificationDispatchEvent(
+                savedUser.getResidenceId(),
+                NotificationType.USER_REGISTRATION_PENDING,
+                "Nouvelle inscription en attente",
+                "Un nouveau compte est en attente de validation pour " + savedUser.getEmail() + ".",
+                RelatedEntityType.USER,
+                savedUser.getId(),
+                savedUser.getId(),
+                NotificationAudience.ADMINS,
+                null
+        ));
         LOGGER.info(
                 "Registration completed for userId={} email={} residenceId={} logementId={} status={}",
                 savedUser.getId(),
@@ -162,6 +179,17 @@ public class AuthService {
         );
 
         return savedUser;
+    }
+
+    @Transactional
+    public void logout(final com.resiflow.security.AuthenticatedUser authenticatedUser, final LogoutRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Logout request must not be null");
+        }
+        com.resiflow.dto.PushTokenDeactivateRequest deactivateRequest = new com.resiflow.dto.PushTokenDeactivateRequest();
+        deactivateRequest.setToken(request.getToken());
+        deactivateRequest.setInstallationId(request.getInstallationId());
+        pushTokenService.logoutCurrentUserToken(authenticatedUser, deactivateRequest);
     }
 
     private void validateRequest(final LoginRequest request) {

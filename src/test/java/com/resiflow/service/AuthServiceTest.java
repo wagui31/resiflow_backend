@@ -17,6 +17,8 @@ import com.resiflow.security.JwtService;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -52,7 +54,8 @@ class AuthServiceTest {
                 jwtService,
                 passwordEncoder,
                 captchaServiceDisabled(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                null
         );
 
         LoginRequest request = new LoginRequest();
@@ -85,7 +88,8 @@ class AuthServiceTest {
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
                 captchaServiceDisabled(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                null
         );
 
         LoginRequest request = new LoginRequest();
@@ -114,7 +118,8 @@ class AuthServiceTest {
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
                 captchaServiceDisabled(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                null
         );
 
         LoginRequest request = new LoginRequest();
@@ -139,7 +144,8 @@ class AuthServiceTest {
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
                 captchaServiceDisabled(),
-                eventPublisher
+                eventPublisher,
+                null
         );
 
         RegisterRequest request = new RegisterRequest();
@@ -162,7 +168,9 @@ class AuthServiceTest {
         assertThat(savedUserRef.get().getResidence().getCode()).isEqualTo("RES-ABC123");
         assertThat(savedUserRef.get().getLogementId()).isEqualTo(70L);
         assertThat(result.getId()).isEqualTo(99L);
-        assertThat(eventPublisher.lastEvent).isInstanceOf(RegistrationCompletedEvent.class);
+        assertThat(eventPublisher.events).hasSize(2);
+        assertThat(eventPublisher.events.getFirst()).isInstanceOf(RegistrationCompletedEvent.class);
+        assertThat(eventPublisher.events.get(1)).isInstanceOf(NotificationDispatchEvent.class);
     }
 
     @Test
@@ -174,7 +182,8 @@ class AuthServiceTest {
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
                 captchaServiceDisabled(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                null
         );
 
         RegisterRequest request = new RegisterRequest();
@@ -204,7 +213,8 @@ class AuthServiceTest {
                 new JwtService(new JwtProperties(SECRET, 3600000)),
                 passwordEncoder,
                 captchaServiceDisabled(),
-                eventPublisherNoOp()
+                eventPublisherNoOp(),
+                null
         );
 
         RegisterRequest request = new RegisterRequest();
@@ -355,11 +365,11 @@ class AuthServiceTest {
 
     private static final class RecordingEventPublisher implements ApplicationEventPublisher {
 
-        private Object lastEvent;
+        private final List<Object> events = new ArrayList<>();
 
         @Override
         public void publishEvent(final Object event) {
-            this.lastEvent = event;
+            this.events.add(event);
         }
     }
 }

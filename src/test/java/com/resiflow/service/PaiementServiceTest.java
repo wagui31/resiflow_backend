@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,6 +50,7 @@ class PaiementServiceTest {
         PaymentMonthRepository paymentMonthRepository = mock(PaymentMonthRepository.class);
         LogementService logementService = mock(LogementService.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         PaiementService paiementService = new PaiementService(
                 paiementRepository,
@@ -59,7 +61,8 @@ class PaiementServiceTest {
                 paymentMonthRepository,
                 null,
                 logementService,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER);
@@ -98,6 +101,7 @@ class PaiementServiceTest {
         PaymentMonthRepository paymentMonthRepository = mock(PaymentMonthRepository.class);
         LogementService logementService = mock(LogementService.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         PaiementService paiementService = new PaiementService(
                 paiementRepository,
@@ -108,7 +112,8 @@ class PaiementServiceTest {
                 paymentMonthRepository,
                 null,
                 logementService,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER);
@@ -145,6 +150,7 @@ class PaiementServiceTest {
         DepenseService depenseService = mock(DepenseService.class);
         LogementService logementService = mock(LogementService.class);
         LogementRepository logementRepository = mock(LogementRepository.class);
+        ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
         PaiementService paiementService = new PaiementService(
                 paiementRepository,
@@ -155,7 +161,8 @@ class PaiementServiceTest {
                 paymentMonthRepository,
                 depenseService,
                 logementService,
-                logementRepository
+                logementRepository,
+                eventPublisher
         );
 
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(10L, "user@example.com", 7L, UserRole.USER);

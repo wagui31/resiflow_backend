@@ -13,6 +13,7 @@ import com.resiflow.entity.UserRole;
 import com.resiflow.entity.UserStatus;
 import com.resiflow.security.AuthenticatedUser;
 import com.resiflow.service.PaiementService;
+import com.resiflow.service.PasswordPolicyValidator;
 import com.resiflow.service.UserService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -41,7 +43,16 @@ class UserControllerTest {
 
     @BeforeEach
     void setUp() {
-        UserService userService = new UserService(null, new BCryptPasswordEncoder(), null, null, null, null) {
+        UserService userService = new UserService(
+                null,
+                new BCryptPasswordEncoder(),
+                new PasswordPolicyValidator(),
+                null,
+                null,
+                null,
+                null,
+                null
+        ) {
             @Override
             public User createAdmin(final CreateAdminRequest request) {
                 if (request == null || request.getEmail() == null || request.getEmail().trim().isEmpty()) {
@@ -103,7 +114,7 @@ class UserControllerTest {
             }
         };
 
-        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null) {
+        PaiementService paiementService = new PaiementService(null, null, null, null, null, null, null, null, null, (ApplicationEventPublisher) null) {
             @Override
             public List<UserPaiementHistoryResponse> getPaiementHistoryByUtilisateur(
                     final Long userId,

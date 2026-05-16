@@ -8,9 +8,11 @@ import com.resiflow.dto.SharedExpenseParticipantResponse;
 import com.resiflow.dto.SharedExpenseSummaryResponse;
 import com.resiflow.entity.CategorieDepense;
 import com.resiflow.entity.Depense;
+import com.resiflow.entity.NotificationType;
 import com.resiflow.entity.Logement;
 import com.resiflow.entity.Paiement;
 import com.resiflow.entity.PaiementStatus;
+import com.resiflow.entity.RelatedEntityType;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.StatutDepense;
 import com.resiflow.entity.TypeDepense;
@@ -29,10 +31,13 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +51,7 @@ public class DepenseService {
     private final UserRepository userRepository;
     private final PaiementRepository paiementRepository;
     private final LogementRepository logementRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public DepenseService(
@@ -55,7 +61,8 @@ public class DepenseService {
             final TransactionCagnotteService transactionCagnotteService,
             final UserRepository userRepository,
             final PaiementRepository paiementRepository,
-            final LogementRepository logementRepository
+            final LogementRepository logementRepository,
+            final ApplicationEventPublisher eventPublisher
     ) {
         this.depenseRepository = depenseRepository;
         this.categorieDepenseService = categorieDepenseService;
@@ -64,6 +71,7 @@ public class DepenseService {
         this.userRepository = userRepository;
         this.paiementRepository = paiementRepository;
         this.logementRepository = logementRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public DepenseService(
@@ -77,6 +85,7 @@ public class DepenseService {
                 categorieDepenseService,
                 residenceAccessService,
                 transactionCagnotteService,
+                null,
                 null,
                 null,
                 null
@@ -103,7 +112,9 @@ public class DepenseService {
         depense.setDateCreation(LocalDateTime.now());
         depense.setDeleted(false);
 
-        return depenseRepository.save(depense);
+        Depense savedDepense = depenseRepository.save(depense);
+        publishExpenseCreatedNotification(savedDepense, actor == null ? null : actor.getId());
+        return savedDepense;
     }
 
     @Transactional
@@ -234,7 +245,9 @@ public class DepenseService {
         depense.setCreePar(actor);
         depense.setDateCreation(LocalDateTime.now());
         depense.setDeleted(false);
-        return depenseRepository.save(depense);
+        Depense savedDepense = depenseRepository.save(depense);
+        publishExpenseCreatedNotification(savedDepense, actor.getId());
+        return savedDepense;
     }
 
     @Transactional
@@ -352,6 +365,20 @@ public class DepenseService {
         return paidByLogement;
     }
 
+    private Set<Long> getPendingLogementIdsByDepense(final Long depenseId) {
+        Set<Long> pendingByLogement = new HashSet<>();
+        for (Paiement paiement : paiementRepository.findAllByDepense_IdAndIsDeletedFalseOrderByDatePaiementDesc(depenseId)) {
+            if (paiement.getTypePaiement() != TypePaiement.DEPENSE_PARTAGE
+                    || paiement.getStatus() != PaiementStatus.PENDING
+                    || paiement.getLogement() == null
+                    || paiement.getLogement().getId() == null) {
+                continue;
+            }
+            pendingByLogement.add(paiement.getLogement().getId());
+        }
+        return pendingByLogement;
+    }
+
     private String buildLogementLabel(final Logement logement) {
         LogementSummaryResponse summary = LogementSummaryResponse.fromEntity(logement);
         return summary.getImmeuble() == null || summary.getImmeuble().isBlank()
@@ -393,8 +420,9 @@ public class DepenseService {
             final List<Logement> participantLogements
     ) {
         Map<Long, BigDecimal> paidByLogement = getPaidAmountsByLogement(depense.getId());
+        Set<Long> pendingByLogement = getPendingLogementIdsByDepense(depense.getId());
         List<SharedExpenseParticipantResponse> participants = participantLogements.stream()
-                .map(logement -> toSharedExpenseParticipant(depense, logement, paidByLogement))
+                .map(logement -> toSharedExpenseParticipant(depense, logement, paidByLogement, pendingByLogement))
                 .toList();
         BigDecimal montantPayeTotal = participants.stream()
                 .map(SharedExpenseParticipantResponse::getMontantPaye)
@@ -423,7 +451,8 @@ public class DepenseService {
     private SharedExpenseParticipantResponse toSharedExpenseParticipant(
             final Depense depense,
             final Logement logement,
-            final Map<Long, BigDecimal> paidByLogement
+            final Map<Long, BigDecimal> paidByLogement,
+            final Set<Long> pendingByLogement
     ) {
         BigDecimal montantPaye = paidByLogement.getOrDefault(logement.getId(), BigDecimal.ZERO);
         BigDecimal montantDu = depense.getMontantParPersonne();
@@ -433,7 +462,8 @@ public class DepenseService {
                 logement.getCodeInterne(),
                 montantDu,
                 montantPaye,
-                computeContributionStatus(montantPaye, montantDu)
+                computeContributionStatus(montantPaye, montantDu),
+                pendingByLogement.contains(logement.getId())
         );
     }
 
@@ -445,5 +475,20 @@ public class DepenseService {
             return "PAYE";
         }
         return "PARTIELLEMENT_PAYE";
+    }
+
+    private void publishExpenseCreatedNotification(final Depense depense, final Long createdByUserId) {
+        String typeLabel = depense.getTypeDepense() == TypeDepense.PARTAGE ? "depense partagee" : "depense";
+        eventPublisher.publishEvent(new NotificationDispatchEvent(
+                depense.getResidence().getId(),
+                NotificationType.EXPENSE_CREATED,
+                "Nouvelle depense creee",
+                "Une nouvelle " + typeLabel + " a ete creee : " + depense.getDescription() + ".",
+                RelatedEntityType.DEPENSE,
+                depense.getId(),
+                createdByUserId,
+                NotificationAudience.ACTIVE_RESIDENTS,
+                null
+        ));
     }
 }

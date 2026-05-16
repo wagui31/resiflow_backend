@@ -10,6 +10,8 @@ import com.resiflow.dto.VoteResultResponse;
 import com.resiflow.dto.VoteUtilisateurDetailResponse;
 import com.resiflow.entity.Logement;
 import com.resiflow.entity.Depense;
+import com.resiflow.entity.NotificationType;
+import com.resiflow.entity.RelatedEntityType;
 import com.resiflow.entity.Residence;
 import com.resiflow.entity.User;
 import com.resiflow.entity.Vote;
@@ -34,6 +36,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,19 +50,22 @@ public class VoteService {
     private final UserRepository userRepository;
     private final ResidenceAccessService residenceAccessService;
     private final DepenseService depenseService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public VoteService(
             final VoteRepository voteRepository,
             final VoteUtilisateurRepository voteUtilisateurRepository,
             final UserRepository userRepository,
             final ResidenceAccessService residenceAccessService,
-            final DepenseService depenseService
+            final DepenseService depenseService,
+            final ApplicationEventPublisher eventPublisher
     ) {
         this.voteRepository = voteRepository;
         this.voteUtilisateurRepository = voteUtilisateurRepository;
         this.userRepository = userRepository;
         this.residenceAccessService = residenceAccessService;
         this.depenseService = depenseService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -79,7 +85,19 @@ public class VoteService {
         vote.setDateFin(request.getDateFin());
         vote.setCreePar(actor);
 
-        return voteRepository.save(vote);
+        Vote savedVote = voteRepository.save(vote);
+        eventPublisher.publishEvent(new NotificationDispatchEvent(
+                residence.getId(),
+                NotificationType.VOTE_CREATED,
+                "Nouveau vote cree",
+                "Un nouveau vote a ete cree : " + savedVote.getTitre() + ".",
+                RelatedEntityType.VOTE,
+                savedVote.getId(),
+                actor.getId(),
+                NotificationAudience.ACTIVE_RESIDENTS,
+                null
+        ));
+        return savedVote;
     }
 
     @Transactional(readOnly = true)
