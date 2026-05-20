@@ -173,8 +173,10 @@ public class VoteService {
         if (vote.getStatut() != VoteStatut.OUVERT) {
             throw new IllegalStateException("Only open votes can be closed");
         }
+        User actor = residenceAccessService.getRequiredActor(authenticatedUser);
         vote.setDateFin(LocalDateTime.now());
         finalizeVote(vote);
+        publishVoteClosedNotification(vote, actor.getId());
         LOGGER.info("Vote {} closed manually with status {}", vote.getId(), vote.getStatut());
         return voteRepository.save(vote);
     }
@@ -208,6 +210,7 @@ public class VoteService {
         Vote vote = getRequiredVote(voteId);
         ensureAdminAccess(vote, authenticatedUser);
         refreshVoteStatusIfExpired(vote);
+        User actor = residenceAccessService.getRequiredActor(authenticatedUser);
 
         if (vote.getDepense() != null) {
             throw new IllegalStateException("Vote linked to a depense cannot be deleted");
@@ -216,6 +219,7 @@ public class VoteService {
             throw new IllegalStateException("Validated vote cannot be deleted");
         }
 
+        publishVoteDeletedNotification(vote, actor.getId());
         voteRepository.delete(vote);
     }
 
@@ -306,6 +310,7 @@ public class VoteService {
         int closedVotes = 0;
         for (Vote vote : expiredVotes) {
             finalizeVote(vote);
+            publishVoteClosedNotification(vote, null);
             closedVotes++;
             LOGGER.info("Vote {} closed automatically with status {}", vote.getId(), vote.getStatut());
         }
@@ -386,6 +391,34 @@ public class VoteService {
         long totalPour = voteUtilisateurRepository.countByVote_IdAndChoix(vote.getId(), VoteChoix.POUR);
         long totalContre = voteUtilisateurRepository.countByVote_IdAndChoix(vote.getId(), VoteChoix.CONTRE);
         vote.setStatut(totalPour > totalContre ? VoteStatut.VALIDE : VoteStatut.REJETE);
+    }
+
+    private void publishVoteClosedNotification(final Vote vote, final Long createdByUserId) {
+        eventPublisher.publishEvent(new NotificationDispatchEvent(
+                vote.getResidence().getId(),
+                NotificationType.VOTE_CLOSED,
+                "Vote termine",
+                "Le vote \"" + vote.getTitre() + "\" est termine. Consultez maintenant le resultat.",
+                RelatedEntityType.VOTE,
+                vote.getId(),
+                createdByUserId,
+                NotificationAudience.ACTIVE_RESIDENTS,
+                null
+        ));
+    }
+
+    private void publishVoteDeletedNotification(final Vote vote, final Long createdByUserId) {
+        eventPublisher.publishEvent(new NotificationDispatchEvent(
+                vote.getResidence().getId(),
+                NotificationType.VOTE_DELETED,
+                "Vote supprime",
+                "Le vote \"" + vote.getTitre() + "\" a ete supprime et n est plus disponible.",
+                RelatedEntityType.VOTE,
+                vote.getId(),
+                createdByUserId,
+                NotificationAudience.ACTIVE_RESIDENTS,
+                null
+        ));
     }
 
     private VoteResultResponse buildResult(final Vote vote) {

@@ -77,7 +77,8 @@ class DepenseControllerTest {
                                         "RES7-APPARTEMENT-B-101",
                                         new BigDecimal("40.00"),
                                         new BigDecimal("40.00"),
-                                        "PAYE"
+                                        "PAYE",
+                                        false
                                 ),
                                 new SharedExpenseParticipantResponse(
                                         16L,
@@ -85,7 +86,8 @@ class DepenseControllerTest {
                                         "RES7-APPARTEMENT-B-102",
                                         new BigDecimal("40.00"),
                                         new BigDecimal("0.00"),
-                                        "NON_PAYE"
+                                        "NON_PAYE",
+                                        false
                                 )
                         )
                 ));

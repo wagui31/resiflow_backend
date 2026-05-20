@@ -16,7 +16,6 @@ public class ApplicationLoggingAspect {
     @Around(
             "execution(public * com.resiflow.controller..*(..))"
                     + " || execution(public * com.resiflow.service..*(..))"
-                    + " || execution(public * com.resiflow.repository..*(..))"
                     + " || execution(public * com.resiflow.security.JwtAuthenticationFilter.*(..))"
                     + " || execution(public * com.resiflow.security.JwtService.*(..))"
                     + " || execution(public * com.resiflow.security.RestAuthenticationEntryPoint.*(..))"

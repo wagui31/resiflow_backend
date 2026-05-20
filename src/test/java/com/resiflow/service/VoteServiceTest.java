@@ -201,6 +201,59 @@ class VoteServiceTest {
     }
 
     @Test
+    void closeVotePublishesClosedNotification() {
+        Vote vote = buildVote(10L, 7L, LocalDateTime.now().plusDays(1), VoteStatut.OUVERT);
+        AtomicReference<Vote> savedVoteRef = new AtomicReference<>();
+        AtomicReference<Object> publishedEventRef = new AtomicReference<>();
+        ApplicationEventPublisher publisher = publishedEventRef::set;
+        User admin = buildUser(99L, 7L);
+        VoteService voteService = new VoteService(
+                voteRepositoryProxy(vote, savedVoteRef),
+                voteUtilisateurRepositoryProxy(
+                        new AtomicReference<>(),
+                        Map.of(VoteChoix.POUR, 2L, VoteChoix.CONTRE, 1L, VoteChoix.NEUTRE, 0L),
+                        false
+                ),
+                userRepositoryProxy(List.of(admin)),
+                residenceAccessServiceStub(admin),
+                depenseServiceStub(),
+                publisher
+        );
+
+        Vote closedVote = voteService.closeVote(10L, new AuthenticatedUser(99L, "admin@example.com", 7L, UserRole.ADMIN));
+
+        assertThat(closedVote.getStatut()).isEqualTo(VoteStatut.VALIDE);
+        assertThat(savedVoteRef.get()).isNotNull();
+        assertThat(publishedEventRef.get()).isInstanceOf(NotificationDispatchEvent.class);
+        NotificationDispatchEvent event = (NotificationDispatchEvent) publishedEventRef.get();
+        assertThat(event.type()).isEqualTo(com.resiflow.entity.NotificationType.VOTE_CLOSED);
+    }
+
+    @Test
+    void deleteVotePublishesDeletedNotification() {
+        Vote vote = buildVote(10L, 7L, LocalDateTime.now().plusDays(1), VoteStatut.OUVERT);
+        AtomicReference<Vote> deletedVoteRef = new AtomicReference<>();
+        AtomicReference<Object> publishedEventRef = new AtomicReference<>();
+        ApplicationEventPublisher publisher = publishedEventRef::set;
+        User admin = buildUser(99L, 7L);
+        VoteService voteService = new VoteService(
+                voteRepositoryProxy(vote, new AtomicReference<>(), deletedVoteRef),
+                voteUtilisateurRepositoryProxy(new AtomicReference<>(), Map.of(), false),
+                userRepositoryProxy(List.of(admin)),
+                residenceAccessServiceStub(admin),
+                depenseServiceStub(),
+                publisher
+        );
+
+        voteService.deleteVote(10L, new AuthenticatedUser(99L, "admin@example.com", 7L, UserRole.ADMIN));
+
+        assertThat(deletedVoteRef.get()).isSameAs(vote);
+        assertThat(publishedEventRef.get()).isInstanceOf(NotificationDispatchEvent.class);
+        NotificationDispatchEvent event = (NotificationDispatchEvent) publishedEventRef.get();
+        assertThat(event.type()).isEqualTo(com.resiflow.entity.NotificationType.VOTE_DELETED);
+    }
+
+    @Test
     void getVoteOverviewAggregatesParticipationByHousingWithoutExposingChoicesPerHousing() {
         Vote vote = buildVote(10L, 7L, LocalDateTime.now().plusDays(2), VoteStatut.OUVERT);
         User currentUser = buildUserWithHousing(21L, 7L, 100L, "LOG-A", "current@example.com", "Current", "User");
@@ -248,6 +301,14 @@ class VoteServiceTest {
     }
 
     private VoteRepository voteRepositoryProxy(final Vote voteToReturn, final AtomicReference<Vote> savedVoteRef) {
+        return voteRepositoryProxy(voteToReturn, savedVoteRef, new AtomicReference<>());
+    }
+
+    private VoteRepository voteRepositoryProxy(
+            final Vote voteToReturn,
+            final AtomicReference<Vote> savedVoteRef,
+            final AtomicReference<Vote> deletedVoteRef
+    ) {
         return (VoteRepository) Proxy.newProxyInstance(
                 VoteRepository.class.getClassLoader(),
                 new Class<?>[]{VoteRepository.class},
@@ -265,6 +326,10 @@ class VoteServiceTest {
                     }
                     if ("findAllByResidence_IdOrderByDateDebutDesc".equals(method.getName())) {
                         return List.of(voteToReturn);
+                    }
+                    if ("delete".equals(method.getName())) {
+                        deletedVoteRef.set((Vote) args[0]);
+                        return null;
                     }
                     if ("toString".equals(method.getName())) {
                         return "VoteRepositoryTestProxy";
